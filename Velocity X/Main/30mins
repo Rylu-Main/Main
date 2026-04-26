@@ -1,6 +1,9 @@
 local Players = game:GetService("Players")
 local VirtualUser = game:GetService("VirtualUser")
 local LP = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local speaker = Players.LocalPlayer
 
 -- Anti AFK
 LP.Idled:Connect(function()
@@ -19,6 +22,20 @@ for _, v in ipairs(workspace:GetDescendants()) do
         end
     end
 end
+
+
+
+RunService.Stepped:Connect(function()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= speaker and player.Character then
+            for _, v in pairs(player.Character:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end
+end)
 
 -- Loop touch
 while task.wait(0.2) do
