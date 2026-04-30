@@ -104,22 +104,38 @@ local function randomString(len)
     return str
 end
 
--- ========== TIME-BASED EMOJI ==========
-local function ThisActuallyCool()
+-- ========== DYNAMIC GREETING + TIME + EMOJI ==========
+local function GetGreetingAndTime()
     local currentTime = os.date("*t")
     local hour = currentTime.hour
+    local minute = currentTime.min
+    local emoji = ""
+    local greeting = ""
 
     if hour >= 6 and hour < 12 then
-        return "🌅"
+        greeting = "Good Morning"
+        emoji = "🌅"
     elseif hour >= 12 and hour < 15 then
-        return "☀️🕛"
+        greeting = "Good Noon"
+        emoji = "☀️🕛"
     elseif hour >= 15 and hour < 18 then
-        return "🌞"
+        greeting = "Good Afternoon"
+        emoji = "🌞"
     elseif hour >= 18 or hour < 6 then
-        return "🌙"
+        greeting = "Good Night"
+        emoji = "🌙"
     else
-        return "🌄"
+        greeting = "Hello"
+        emoji = "🌄"
     end
+
+    -- Format time with AM/PM
+    local hour12 = hour % 12
+    if hour12 == 0 then hour12 = 12 end
+    local ampm = hour < 12 and "AM" or "PM"
+    local timeStr = string.format("%02d:%02d %s", hour12, minute, ampm)
+
+    return greeting, emoji, timeStr
 end
 
 local cloneref = cloneref or function(obj) return obj end
@@ -127,6 +143,7 @@ local CoreGui = cloneref(game:GetService("CoreGui"))
 local HttpService = cloneref(game:GetService("HttpService"))
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 -- ========== MAIN GUI ==========
 local RealZzHub = Instance.new("ScreenGui")
@@ -247,23 +264,28 @@ Version.TextStrokeTransparency = 0
 Version.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Version.Visible = false
 
--- Time emoji label
-local TimeEmoji = Instance.new("TextLabel", MainBackground)
-TimeEmoji.BackgroundTransparency = 1
-TimeEmoji.Position = UDim2.new(0.02, 0, 0.86, 0)
-TimeEmoji.Size = UDim2.new(0, 40, 0, 21)
-TimeEmoji.Font = Enum.Font.Arcade
-TimeEmoji.Text = ThisActuallyCool()
-TimeEmoji.TextSize = 18
-TimeEmoji.TextXAlignment = Enum.TextXAlignment.Left
-TimeEmoji.TextColor3 = Color3.fromRGB(0, 255, 150)
-TimeEmoji.TextStrokeTransparency = 0
-TimeEmoji.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-TimeEmoji.Visible = false
-local EmojiStroke = Instance.new("UIStroke", TimeEmoji)
-EmojiStroke.Color = Color3.fromRGB(0, 200, 255)
-EmojiStroke.Thickness = 1
-EmojiStroke.Transparency = 0.4
+-- Greeting label (bottom left)
+local GreetingLabel = Instance.new("TextLabel", MainBackground)
+GreetingLabel.BackgroundTransparency = 1
+GreetingLabel.Position = UDim2.new(0.02, 0, 0.86, 0)
+GreetingLabel.Size = UDim2.new(0, 250, 0, 21)
+GreetingLabel.Font = Enum.Font.Arcade
+GreetingLabel.TextSize = 11
+GreetingLabel.TextXAlignment = Enum.TextXAlignment.Left
+GreetingLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
+GreetingLabel.TextStrokeTransparency = 0
+GreetingLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+GreetingLabel.Visible = false
+local GreetingStroke = Instance.new("UIStroke", GreetingLabel)
+GreetingStroke.Color = Color3.fromRGB(0, 200, 255)
+GreetingStroke.Thickness = 1
+GreetingStroke.Transparency = 0.4
+
+local function UpdateGreeting()
+    local playerName = Players.LocalPlayer.DisplayName
+    local greeting, emoji, timeStr = GetGreetingAndTime()
+    GreetingLabel.Text = string.format("%s, %s %s %s", greeting, playerName, emoji, timeStr)
+end
 
 local CloseButton = Instance.new("TextButton", MainBackground)
 CloseButton.BackgroundTransparency = 1
@@ -629,6 +651,23 @@ local function setupAutoExecutorLoader()
     end
 end
 
+-- ========== CLEAR TELEPORT QUEUE (GUARANTEED) ==========
+local function clearTeleportQueue()
+    -- Try all known clear functions
+    if clearteleportqueue then pcall(clearteleportqueue) end
+    if clear_teleport_queue then pcall(clear_teleport_queue) end
+    if clearqueueonteleport then pcall(clearqueueonteleport) end
+    if queue_on_teleport then pcall(queue_on_teleport, nil) end
+    if fluxus and fluxus.queue_on_teleport then pcall(fluxus.queue_on_teleport, nil) end
+    if syn and syn.queue_on_teleport then pcall(syn.queue_on_teleport, nil) end
+    
+    -- Additional brute-force clear for some executors
+    if setclipboard then
+        pcall(function() setclipboard("") end) -- not directly related but sometimes helps
+    end
+    showNotification("Velocity X", "Auto Executor cleared", Color3.fromRGB(255, 200, 0), 2)
+end
+
 local function setButtonActive(button, active)
     if not button or not button.Parent then return end
     button.Active = active
@@ -766,7 +805,7 @@ Name.Visible = true
 Logo.Visible = true
 Version.Visible = true
 SettingsIcon.Visible = true
-TimeEmoji.Visible = true
+GreetingLabel.Visible = true
 
 loadConfig()
 
@@ -789,9 +828,11 @@ end)
 local autoLoaderCtrl = addToggle(ScrollingFrame, "Auto Executor Loader", config.autoExecutorLoader, function(val)
     config.autoExecutorLoader = val
     if config.autoSave then saveConfig() end
-    showNotification("Auto Executor Loader", val and "Enabled" or "Disabled", Color3.fromRGB(0, 255, 120), 2)
     if val then
         setupAutoExecutorLoader()
+        showNotification("Auto Executor Loader", "Enabled – will reload on teleport", Color3.fromRGB(0, 255, 120), 2)
+    else
+        clearTeleportQueue()
     end
 end)
 
@@ -914,15 +955,12 @@ if config.autoExecutorLoader then
     setupAutoExecutorLoader()
 end
 
--- Start time emoji updater
+-- Start greeting updater (every minute)
+UpdateGreeting()
 spawn(function()
     while RealZzHub and RealZzHub.Parent do
         task.wait(60)
-        pcall(function()
-            if TimeEmoji and TimeEmoji.Parent then
-                TimeEmoji.Text = ThisActuallyCool()
-            end
-        end)
+        pcall(UpdateGreeting)
     end
 end)
 
