@@ -104,6 +104,24 @@ local function randomString(len)
     return str
 end
 
+-- ========== TIME-BASED EMOJI ==========
+local function ThisActuallyCool()
+    local currentTime = os.date("*t")
+    local hour = currentTime.hour
+
+    if hour >= 6 and hour < 12 then
+        return "🌅"
+    elseif hour >= 12 and hour < 15 then
+        return "☀️🕛"
+    elseif hour >= 15 and hour < 18 then
+        return "🌞"
+    elseif hour >= 18 or hour < 6 then
+        return "🌙"
+    else
+        return "🌄"
+    end
+end
+
 local cloneref = cloneref or function(obj) return obj end
 local CoreGui = cloneref(game:GetService("CoreGui"))
 local HttpService = cloneref(game:GetService("HttpService"))
@@ -228,6 +246,24 @@ Version.TextColor3 = Color3.fromRGB(0, 200, 255)
 Version.TextStrokeTransparency = 0
 Version.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Version.Visible = false
+
+-- Time emoji label
+local TimeEmoji = Instance.new("TextLabel", MainBackground)
+TimeEmoji.BackgroundTransparency = 1
+TimeEmoji.Position = UDim2.new(0.02, 0, 0.86, 0)
+TimeEmoji.Size = UDim2.new(0, 40, 0, 21)
+TimeEmoji.Font = Enum.Font.Arcade
+TimeEmoji.Text = ThisActuallyCool()
+TimeEmoji.TextSize = 18
+TimeEmoji.TextXAlignment = Enum.TextXAlignment.Left
+TimeEmoji.TextColor3 = Color3.fromRGB(0, 255, 150)
+TimeEmoji.TextStrokeTransparency = 0
+TimeEmoji.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+TimeEmoji.Visible = false
+local EmojiStroke = Instance.new("UIStroke", TimeEmoji)
+EmojiStroke.Color = Color3.fromRGB(0, 200, 255)
+EmojiStroke.Thickness = 1
+EmojiStroke.Transparency = 0.4
 
 local CloseButton = Instance.new("TextButton", MainBackground)
 CloseButton.BackgroundTransparency = 1
@@ -541,7 +577,10 @@ end
 local config = {
     autoSave = false,
     autoInject = false,
-    autoExecutorLoader = false
+    autoExecutorLoader = false,
+    antiAfk = false,
+    antiFling = false,
+    antiGameplayPause = false
 }
 
 local function loadConfig()
@@ -552,6 +591,9 @@ local function loadConfig()
                 config.autoSave = data.autoSave or false
                 config.autoInject = data.autoInject or false
                 config.autoExecutorLoader = data.autoExecutorLoader or false
+                config.antiAfk = data.antiAfk or false
+                config.antiFling = data.antiFling or false
+                config.antiGameplayPause = data.antiGameplayPause or false
             end
         end)
     end
@@ -563,7 +605,10 @@ local function saveConfig()
             local data = HttpService:JSONEncode({
                 autoSave = config.autoSave,
                 autoInject = config.autoInject,
-                autoExecutorLoader = config.autoExecutorLoader
+                autoExecutorLoader = config.autoExecutorLoader,
+                antiAfk = config.antiAfk,
+                antiFling = config.antiFling,
+                antiGameplayPause = config.antiGameplayPause
             })
             writefile(CONFIG_FILE, data)
         end)
@@ -577,7 +622,6 @@ local function setupAutoExecutorLoader()
         spawn(function()
             pcall(function()
                 queueteleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/Velocity%20X/Loader.lua'))()")
-                --loadstring(game:HttpGet('https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/Velocity%20X/Loader.lua'))()
             end)
         end)
     else
@@ -663,6 +707,28 @@ local function clearText()
     end
 end
 
+-- Cleanup function for anti features
+local antiAfkConnection = nil
+local antiFlingConnection = nil
+local antiGameplayPauseRunning = false
+local antiGameplayPauseThread = nil
+
+local function cleanupAntiFeatures()
+    if antiAfkConnection then
+        antiAfkConnection:Disconnect()
+        antiAfkConnection = nil
+    end
+    if antiFlingConnection then
+        antiFlingConnection:Disconnect()
+        antiFlingConnection = nil
+    end
+    antiGameplayPauseRunning = false
+    if antiGameplayPauseThread then
+        task.cancel(antiGameplayPauseThread)
+        antiGameplayPauseThread = nil
+    end
+end
+
 local function injectScript()
     if injected then return end
     injected = true
@@ -681,6 +747,7 @@ local function performAutoInject()
     }):Play()
     clearText()
     task.wait(0.35)
+    cleanupAntiFeatures()
     if RealZzHub then RealZzHub:Destroy() end
 end
 
@@ -699,6 +766,7 @@ Name.Visible = true
 Logo.Visible = true
 Version.Visible = true
 SettingsIcon.Visible = true
+TimeEmoji.Visible = true
 
 loadConfig()
 
@@ -725,6 +793,82 @@ local autoLoaderCtrl = addToggle(ScrollingFrame, "Auto Executor Loader", config.
     if val then
         setupAutoExecutorLoader()
     end
+end)
+
+-- ANTI AFK TOGGLE
+local antiAfkCtrl = addToggle(ScrollingFrame, "Anti AFK", config.antiAfk, function(val)
+    config.antiAfk = val
+    if config.autoSave then saveConfig() end
+    if val then
+        if not antiAfkConnection then
+            antiAfkConnection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
+                pcall(function()
+                    game:GetService("VirtualUser"):CaptureController()
+                    game:GetService("VirtualUser"):ClickButton2(Vector2.new())
+                end)
+            end)
+        end
+    else
+        if antiAfkConnection then
+            antiAfkConnection:Disconnect()
+            antiAfkConnection = nil
+        end
+    end
+    showNotification("Anti AFK", val and "Enabled" or "Disabled", Color3.fromRGB(0, 255, 120), 2)
+end)
+
+-- ANTI FLING TOGGLE
+local antiFlingCtrl = addToggle(ScrollingFrame, "Anti Fling", config.antiFling, function(val)
+    config.antiFling = val
+    if config.autoSave then saveConfig() end
+    if val then
+        if not antiFlingConnection then
+            antiFlingConnection = game:GetService("RunService").Stepped:Connect(function()
+                local localPlayer = game:GetService("Players").LocalPlayer
+                for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+                    if player ~= localPlayer and player.Character then
+                        for _, v in pairs(player.Character:GetDescendants()) do
+                            if v:IsA("BasePart") then
+                                v.CanCollide = false
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    else
+        if antiFlingConnection then
+            antiFlingConnection:Disconnect()
+            antiFlingConnection = nil
+        end
+    end
+    showNotification("Anti Fling", val and "Enabled" or "Disabled", Color3.fromRGB(0, 255, 120), 2)
+end)
+
+-- ANTI GAMEPLAY PAUSE TOGGLE
+local antiGameplayPauseCtrl = addToggle(ScrollingFrame, "Anti Gameplay Pause", config.antiGameplayPause, function(val)
+    config.antiGameplayPause = val
+    if config.autoSave then saveConfig() end
+    if val then
+        if not antiGameplayPauseRunning then
+            antiGameplayPauseRunning = true
+            antiGameplayPauseThread = task.spawn(function()
+                while antiGameplayPauseRunning do
+                    pcall(function()
+                        game:GetService("Players").LocalPlayer.GameplayPaused = false
+                    end)
+                    task.wait()
+                end
+            end)
+        end
+    else
+        antiGameplayPauseRunning = false
+        if antiGameplayPauseThread then
+            task.cancel(antiGameplayPauseThread)
+            antiGameplayPauseThread = nil
+        end
+    end
+    showNotification("Anti Gameplay Pause", val and "Enabled" or "Disabled", Color3.fromRGB(0, 255, 120), 2)
 end)
 
 local deleteConfigButton = Instance.new("TextButton")
@@ -770,6 +914,18 @@ if config.autoExecutorLoader then
     setupAutoExecutorLoader()
 end
 
+-- Start time emoji updater
+spawn(function()
+    while RealZzHub and RealZzHub.Parent do
+        task.wait(60)
+        pcall(function()
+            if TimeEmoji and TimeEmoji.Parent then
+                TimeEmoji.Text = ThisActuallyCool()
+            end
+        end)
+    end
+end)
+
 -- ========== EVENT HANDLERS ==========
 InjectButton.MouseButton1Click:Connect(function()
     if not InjectButton.Active then return end
@@ -781,6 +937,7 @@ InjectButton.MouseButton1Click:Connect(function()
     }):Play()
     clearText()
     task.wait(0.35)
+    cleanupAntiFeatures()
     if RealZzHub then RealZzHub:Destroy() end
 end)
 
@@ -873,6 +1030,7 @@ YesButton.MouseButton1Click:Connect(function()
             ImageTransparency = 1
         }):Play()
         task.wait(0.3)
+        cleanupAntiFeatures()
         if RealZzHub then RealZzHub:Destroy() end
     end)
 end)
@@ -942,10 +1100,16 @@ DeleteYesButton.MouseButton1Click:Connect(function()
             config.autoSave = false
             config.autoInject = false
             config.autoExecutorLoader = false
+            config.antiAfk = false
+            config.antiFling = false
+            config.antiGameplayPause = false
             
             autoSaveCtrl:Set(false)
             autoInjectCtrl:Set(false)
             autoLoaderCtrl:Set(false)
+            antiAfkCtrl:Set(false)
+            antiFlingCtrl:Set(false)
+            antiGameplayPauseCtrl:Set(false)
             
             showNotification("Config Deleted", "Settings file has been removed.", Color3.fromRGB(255, 100, 100), 3)
         end
