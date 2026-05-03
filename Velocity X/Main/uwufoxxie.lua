@@ -1,3 +1,4 @@
+wait(3) 
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 
