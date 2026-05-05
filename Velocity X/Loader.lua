@@ -1,4 +1,3 @@
--- ========== PREVENT DUPLICATE LOADER ==========
 if getgenv().Velocity_X_Loader then
     local Notify
     pcall(function()
@@ -67,7 +66,6 @@ if getgenv().Velocity_X_Loader then
 end
 getgenv().Velocity_X_Loader = true
 
--- ========== NOTIFICATION LIBRARY ==========
 local Notify
 pcall(function()
     Notify = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/UI%20Libary/Nofication/BocusLuke.lua"))()
@@ -93,7 +91,6 @@ local function showNotification(title, desc, outlineColor, duration, imageId)
     end
 end
 
--- ========== UTILITIES ==========
 local function randomString(len)
     local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     local str = ""
@@ -104,7 +101,6 @@ local function randomString(len)
     return str
 end
 
--- ========== DYNAMIC GREETING + TIME + EMOJI ==========
 local function GetGreetingAndTime()
     local currentTime = os.date("*t")
     local hour = currentTime.hour
@@ -129,7 +125,6 @@ local function GetGreetingAndTime()
         emoji = "🌄"
     end
 
-    -- Format time with AM/PM
     local hour12 = hour % 12
     if hour12 == 0 then hour12 = 12 end
     local ampm = hour < 12 and "AM" or "PM"
@@ -145,22 +140,37 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
+local b='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+local function base64_decode(data)
+    data = string.gsub(data, '[^'..b..'=]', '')
+    return (data:gsub('.', function(x)
+        if (x == '=') then return '' end
+        local r,f='',(b:find(x)-1)
+        for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
+        return r;
+    end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
+        if (#x ~= 8) then return '' end
+        local c=0
+        for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
+        return string.char(c)
+    end))
+end
+
 local function decode_obfuscated(obj)
     if type(obj) == "table" then
         local new = {}
         for k, v in pairs(obj) do
-            local dec_key = HttpService:Base64Decode(k)   
-            new[dec_key] = decode_obfuscated(v)          
+            local dec_key = base64_decode(k)
+            new[dec_key] = decode_obfuscated(v)
         end
         return new
     elseif type(obj) == "string" then
-        return HttpService:Base64Decode(obj)              
+        return base64_decode(obj)
     else
         return obj
     end
 end
 
--- ========== MAIN GUI ==========
 local RealZzHub = Instance.new("ScreenGui")
 RealZzHub.Name = "Velocity_" .. randomString(10)
 RealZzHub.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -279,7 +289,6 @@ Version.TextStrokeTransparency = 0
 Version.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Version.Visible = false
 
--- Greeting label (bottom left)
 local GreetingLabel = Instance.new("TextLabel", MainBackground)
 GreetingLabel.BackgroundTransparency = 1
 GreetingLabel.Position = UDim2.new(0.02, 0, 0.86, 0)
@@ -320,7 +329,6 @@ SettingsIcon.Image = "rbxassetid://101339235267993"
 SettingsIcon.Visible = false
 SettingsIcon.ImageTransparency = 0.2
 
--- ==================== CREATE CONFIRMATION DIALOGS EARLY ====================
 local ConfirmFrame = Instance.new("ImageLabel", MainBackground)
 ConfirmFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 ConfirmFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -450,7 +458,6 @@ DeleteNoGradient.Rotation = 90
 Instance.new("UIStroke", DeleteNoButton).Color = Color3.fromRGB(255, 100, 100)
 Instance.new("UIStroke", DeleteNoButton).Thickness = 1.5
 
--- ==================== SETTINGS PANEL ====================
 local SettingsPanel = Instance.new("ImageLabel", MainBackground)
 SettingsPanel.AnchorPoint = Vector2.new(1, 0)
 SettingsPanel.Position = UDim2.new(0.85, 0, 0.09, 0)
@@ -603,7 +610,6 @@ local function addToggle(parent, labelText, defaultValue, callback)
     }
 end
 
--- ========== CONFIGURATION ==========
 local CONFIG_FOLDER = "Velocity X"
 local CONFIG_FILE = CONFIG_FOLDER .. "/VelocityX_Settings.json"
 
@@ -652,7 +658,6 @@ local function saveConfig()
     end
 end
 
--- ========== AUTO EXECUTOR LOADER ==========
 local function setupAutoExecutorLoader()
     local queueteleport = queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
     if queueteleport then
@@ -666,9 +671,7 @@ local function setupAutoExecutorLoader()
     end
 end
 
--- ========== CLEAR TELEPORT QUEUE (GUARANTEED) ==========
 local function clearTeleportQueue()
-    -- Try all known clear functions
     if clearteleportqueue then pcall(clearteleportqueue) end
     if clear_teleport_queue then pcall(clear_teleport_queue) end
     if clearqueueonteleport then pcall(clearqueueonteleport) end
@@ -676,7 +679,6 @@ local function clearTeleportQueue()
     if fluxus and fluxus.queue_on_teleport then pcall(fluxus.queue_on_teleport, nil) end
     if syn and syn.queue_on_teleport then pcall(syn.queue_on_teleport, nil) end
     
-    -- Additional brute-force clear for some executors
     if setclipboard then
         pcall(function() setclipboard("") end)
     end
@@ -693,7 +695,6 @@ local function setButtonActive(button, active)
     end
 end
 
--- ========== SCRIPT URL DETECTION ==========
 local scriptUrl = nil
 local gameName = "Universal"
 local injected = false
@@ -727,8 +728,8 @@ if not scriptUrl then
     pcall(function()
         local pastebinData = fetch(PASTEBIN_JSON_URL .. "?nocache=" .. tick())
         if pastebinData then
-            local rawJson = HttpService:JSONDecode(pastebinData)          -- decode JSON string → table
-            local json = decode_obfuscated(rawJson)                       -- Base64 decode all keys & values
+            local rawJson = HttpService:JSONDecode(pastebinData)
+            local json = decode_obfuscated(rawJson)
             if json and json[gameId] then
                 local path = json[gameId].Path
                 local randomstring = json[gameId].randomstring or ""
@@ -762,7 +763,6 @@ local function clearText()
     end
 end
 
--- Cleanup function for anti features
 local antiAfkConnection = nil
 local antiFlingConnection = nil
 local antiGameplayPauseRunning = false
@@ -806,7 +806,6 @@ local function performAutoInject()
     if RealZzHub then RealZzHub:Destroy() end
 end
 
--- ========== OPEN ANIMATION ==========
 MainBackground.Visible = true
 MainBackground.Size = UDim2.new(0, 0, 0, 0)
 TweenService:Create(MainBackground, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
@@ -825,7 +824,6 @@ GreetingLabel.Visible = true
 
 loadConfig()
 
--- ========== TOGGLES ==========
 local autoSaveCtrl = addToggle(ScrollingFrame, "Auto Save Config", config.autoSave, function(val)
     config.autoSave = val
     if config.autoSave then saveConfig() end
@@ -852,7 +850,6 @@ local autoLoaderCtrl = addToggle(ScrollingFrame, "Auto Executor Loader", config.
     end
 end)
 
--- ANTI AFK TOGGLE
 local antiAfkCtrl = addToggle(ScrollingFrame, "Anti AFK", config.antiAfk, function(val)
     config.antiAfk = val
     if config.autoSave then saveConfig() end
@@ -874,7 +871,6 @@ local antiAfkCtrl = addToggle(ScrollingFrame, "Anti AFK", config.antiAfk, functi
     showNotification("Anti AFK", val and "Enabled" or "Disabled", Color3.fromRGB(0, 255, 120), 2)
 end)
 
--- ANTI FLING TOGGLE
 local antiFlingCtrl = addToggle(ScrollingFrame, "Anti Fling", config.antiFling, function(val)
     config.antiFling = val
     if config.autoSave then saveConfig() end
@@ -902,7 +898,6 @@ local antiFlingCtrl = addToggle(ScrollingFrame, "Anti Fling", config.antiFling, 
     showNotification("Anti Fling", val and "Enabled" or "Disabled", Color3.fromRGB(0, 255, 120), 2)
 end)
 
--- ANTI GAMEPLAY PAUSE TOGGLE
 local antiGameplayPauseCtrl = addToggle(ScrollingFrame, "Anti Gameplay Pause", config.antiGameplayPause, function(val)
     config.antiGameplayPause = val
     if config.autoSave then saveConfig() end
@@ -963,7 +958,6 @@ local function onPanelOpen()
     updateCanvasSize()
 end
 
--- ========== AUTO ACTIONS ==========
 if config.autoInject then
     performAutoInject()
 end
@@ -971,7 +965,6 @@ if config.autoExecutorLoader then
     setupAutoExecutorLoader()
 end
 
--- Start greeting updater (every minute)
 UpdateGreeting()
 spawn(function()
     while RealZzHub and RealZzHub.Parent do
@@ -980,7 +973,6 @@ spawn(function()
     end
 end)
 
--- ========== EVENT HANDLERS ==========
 InjectButton.MouseButton1Click:Connect(function()
     if not InjectButton.Active then return end
     injectScript()
@@ -1174,7 +1166,6 @@ DeleteNoButton.MouseButton1Click:Connect(function()
     closeDeleteConfirmDialog()
 end)
 
--- ========== DRAG SYSTEM ==========
 local UIS = game:GetService("UserInputService")
 local dragging = false
 local dragInput, mousePos, framePos
