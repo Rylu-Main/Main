@@ -1,107 +1,306 @@
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local CoreGui = game.CoreGui
+local CoreGui = game:GetService("CoreGui")
 
--- Remove existing hub if any
-local oldHub = CoreGui:FindFirstChild("NeizHub")
-if oldHub then
-    oldHub:Destroy()
+pcall(function()
+    if CoreGui:FindFirstChild("NeizHub") then
+        CoreGui.NeizHub:Destroy()
+    end
+end)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NeizHub"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Parent = ScreenGui
+Main.Size = UDim2.new(0,420,0,320)
+Main.Position = UDim2.new(0.5,-210,0.5,-160)
+Main.BackgroundColor3 = Color3.fromRGB(15,15,15)
+Main.BackgroundTransparency = 0.1
+Main.BorderSizePixel = 0
+
+Instance.new("UICorner",Main).CornerRadius = UDim.new(0,12)
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Parent = Main
+Stroke.Color = Color3.fromRGB(255,255,255)
+Stroke.Transparency = 0.85
+Stroke.Thickness = 1
+
+local Title = Instance.new("TextLabel")
+Title.Parent = Main
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0,15,0,10)
+Title.Size = UDim2.new(1,-30,0,30)
+Title.Font = Enum.Font.Code
+Title.Text = "Neiz Hub"
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.TextSize = 18
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local Info = Instance.new("TextLabel")
+Info.Parent = Main
+Info.BackgroundTransparency = 1
+Info.Position = UDim2.new(0,15,0,40)
+Info.Size = UDim2.new(1,-30,0,20)
+Info.Font = Enum.Font.Code
+Info.Text = "> Welcome " .. Players.LocalPlayer.Name
+Info.TextColor3 = Color3.fromRGB(170,170,170)
+Info.TextSize = 13
+Info.TextXAlignment = Enum.TextXAlignment.Left
+
+local Container = Instance.new("ScrollingFrame")
+Container.Parent = Main
+Container.Name = "TabContainer"
+Container.BackgroundTransparency = 1
+Container.Position = UDim2.new(0,15,0,70)
+Container.Size = UDim2.new(1,-30,1,-85)
+Container.CanvasSize = UDim2.new(0,0,0,0)
+Container.ScrollBarThickness = 2
+Container.BorderSizePixel = 0
+
+local Layout = Instance.new("UIListLayout")
+Layout.Parent = Container
+Layout.Padding = UDim.new(0,8)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function UpdateCanvas()
+    task.wait()
+    Container.CanvasSize = UDim2.new(
+        0,
+        0,
+        0,
+        Layout.AbsoluteContentSize.Y + 10
+    )
 end
 
--- Create main GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "NeizHub"
-screenGui.Parent = CoreGui
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local Dragging
+local DragStart
+local StartPos
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "Main"
-mainFrame.Parent = screenGui
-mainFrame.BackgroundColor3 = Color3.fromRGB(15, 17, 20)
-mainFrame.BackgroundTransparency = 0.3
-mainFrame.Position = UDim2.new(0.5, -200, 0.5, -125)
-mainFrame.Size = UDim2.new(0, 400, 0, 250)
+Main.InputBegan:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+        Dragging = true
+        DragStart = Input.Position
+        StartPos = Main.Position
 
--- UI corner and stroke
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = mainFrame
+        Input.Changed:Connect(function()
+            if Input.UserInputState == Enum.UserInputState.End then
+                Dragging = false
+            end
+        end)
+    end
+end)
 
-local stroke = Instance.new("UIStroke")
-stroke.Thickness = 1
-stroke.Color = Color3.fromRGB(255, 255, 255)
-stroke.Transparency = 0.8
-stroke.Parent = mainFrame
+UIS.InputChanged:Connect(function(Input)
+    if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+        local Delta = Input.Position - DragStart
 
--- Content label (shows time, IP, HWID, etc.)
-local contentLabel = Instance.new("TextLabel")
-contentLabel.Name = "Content"
-contentLabel.Parent = mainFrame
-contentLabel.BackgroundTransparency = 1
-contentLabel.Position = UDim2.new(0, 25, 0, 25)
-contentLabel.Size = UDim2.new(1, -50, 0.8, 0)
-contentLabel.Font = Enum.Font.Code
-contentLabel.Text = "" -- Will be filled after click
-contentLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-contentLabel.TextSize = 14
-contentLabel.TextXAlignment = Enum.TextXAlignment.Left
-contentLabel.TextYAlignment = Enum.TextYAlignment.Top
-contentLabel.LineHeight = 1.2
+        Main.Position = UDim2.new(
+            StartPos.X.Scale,
+            StartPos.X.Offset + Delta.X,
+            StartPos.Y.Scale,
+            StartPos.Y.Offset + Delta.Y
+        )
+    end
+end)
 
--- Triangle button (top right, rotates)
-local triangleButton = Instance.new("TextButton")
-triangleButton.Name = "Triangle"
-triangleButton.Parent = mainFrame
-triangleButton.AnchorPoint = Vector2.new(0.5, 0.5)
-triangleButton.BackgroundTransparency = 1
-triangleButton.Position = UDim2.new(0, 30, 1, -30)
-triangleButton.Size = UDim2.new(0, 30, 0, 30)
-triangleButton.Font = Enum.Font.Code
-triangleButton.Text = "▲"
-triangleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-triangleButton.TextTransparency = 0.8
-triangleButton.TextSize = 25
+function _G.AddButton(args)
+    local Button = Instance.new("TextButton")
+    Button.Parent = Container
+    Button.BackgroundColor3 = Color3.fromRGB(20,20,20)
+    Button.BackgroundTransparency = 0.2
+    Button.Size = UDim2.new(1,0,0,32)
+    Button.AutoButtonColor = false
+    Button.Text = args.Text or "Button"
+    Button.Font = Enum.Font.Code
+    Button.TextColor3 = Color3.fromRGB(255,255,255)
+    Button.TextSize = 14
+    Button.BorderSizePixel = 0
 
--- Bottom info label (cycling messages)
-local bottomInfo = Instance.new("TextLabel")
-bottomInfo.Name = "BottomInfo"
-bottomInfo.Parent = mainFrame
-bottomInfo.BackgroundTransparency = 1
-bottomInfo.Position = UDim2.new(0, 0, 1, -30)
-bottomInfo.Size = UDim2.new(1, 0, 0, 20)
-bottomInfo.Font = Enum.Font.Code
-bottomInfo.TextColor3 = Color3.fromRGB(160, 160, 160)
-bottomInfo.TextSize = 12
-bottomInfo.TextXAlignment = Enum.TextXAlignment.Center
+    Instance.new("UICorner",Button).CornerRadius = UDim.new(0,8)
 
--- IP Reveal button (top left)
-local ipRevealButton = Instance.new("TextButton")
-ipRevealButton.Name = "IPReveal"
-ipRevealButton.Parent = mainFrame
-ipRevealButton.BackgroundTransparency = 1
-ipRevealButton.Position = UDim2.new(0, 25, 0, 130)
-ipRevealButton.Size = UDim2.new(0, 200, 0, 20)
-ipRevealButton.Text = "Loading IP..." -- temporary
-ipRevealButton.ZIndex = 10
+    Button.MouseButton1Click:Connect(function()
+        pcall(function()
+            if args.Callback then
+                args.Callback()
+            end
+        end)
+    end)
 
--- HWID Reveal button (below IP)
-local hwidRevealButton = Instance.new("TextButton")
-hwidRevealButton.Name = "HWIDReveal"
-hwidRevealButton.Parent = mainFrame
-hwidRevealButton.BackgroundTransparency = 1
-hwidRevealButton.Position = UDim2.new(0, 25, 0, 165)
-hwidRevealButton.Size = UDim2.new(0, 300, 0, 20)
-hwidRevealButton.Text = "HWID: Unknown" -- placeholder
-hwidRevealButton.ZIndex = 10
+    UpdateCanvas()
+end
 
--- Tab container (hidden initially, shown after first click)
-local tabContainer = Instance.new("ScrollingFrame")
-tabContainer.Name = "TabContainer"
-tabContainer.Parent = mainFrame
-tabContainer.BackgroundTransparency = 1
-tabContainer.Position = UDim2.new(0, 20, 0, 60)
-tabContainer.Size = UDim2.new(1, -40, 1, -100)
+function _G.AddDropdown(args)
+    local Open = false
+    local OptionSize = 28
+
+    local Holder = Instance.new("Frame")
+    Holder.Parent = Container
+    Holder.BackgroundTransparency = 1
+    Holder.Size = UDim2.new(1,0,0,32)
+
+    local MainButton = Instance.new("TextButton")
+    MainButton.Parent = Holder
+    MainButton.BackgroundColor3 = Color3.fromRGB(20,20,20)
+    MainButton.BackgroundTransparency = 0.2
+    MainButton.Size = UDim2.new(1,0,0,32)
+    MainButton.Text = (args.Text or "Dropdown") .. " ▼"
+    MainButton.Font = Enum.Font.Code
+    MainButton.TextColor3 = Color3.fromRGB(255,255,255)
+    MainButton.TextSize = 14
+    MainButton.BorderSizePixel = 0
+
+    Instance.new("UICorner",MainButton).CornerRadius = UDim.new(0,8)
+
+    local List = Instance.new("Frame")
+    List.Parent = Holder
+    List.BackgroundTransparency = 1
+    List.Position = UDim2.new(0,0,0,36)
+    List.Size = UDim2.new(1,0,0,0)
+    List.ClipsDescendants = true
+
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.Parent = List
+    ListLayout.Padding = UDim.new(0,4)
+
+    local Total = 0
+
+    for _,v in pairs(args.List or {}) do
+        Total += OptionSize + 4
+
+        local Option = Instance.new("TextButton")
+        Option.Parent = List
+        Option.BackgroundColor3 = Color3.fromRGB(25,25,25)
+        Option.BackgroundTransparency = 0.2
+        Option.Size = UDim2.new(1,0,0,OptionSize)
+        Option.Text = tostring(v)
+        Option.Font = Enum.Font.Code
+        Option.TextColor3 = Color3.fromRGB(200,200,200)
+        Option.TextSize = 13
+        Option.BorderSizePixel = 0
+
+        Instance.new("UICorner",Option).CornerRadius = UDim.new(0,8)
+
+        Option.MouseButton1Click:Connect(function()
+            MainButton.Text = (args.Text or "Dropdown") .. ": " .. tostring(v)
+
+            pcall(function()
+                if args.Callback then
+                    args.Callback(v)
+                end
+            end)
+        end)
+    end
+
+    MainButton.MouseButton1Click:Connect(function()
+        Open = not Open
+
+        if Open then
+            Holder.Size = UDim2.new(1,0,0,36 + Total)
+            List.Size = UDim2.new(1,0,0,Total)
+            MainButton.Text = (args.Text or "Dropdown") .. " ▲"
+        else
+            Holder.Size = UDim2.new(1,0,0,32)
+            List.Size = UDim2.new(1,0,0,0)
+            MainButton.Text = (args.Text or "Dropdown") .. " ▼"
+        end
+
+        UpdateCanvas()
+    end)
+
+    UpdateCanvas()
+end
+
+function _G.AddSlider(args)
+    local Min = args.Min or 0
+    local Max = args.Max or 100
+    local Default = args.Default or Min
+
+    local Frame = Instance.new("Frame")
+    Frame.Parent = Container
+    Frame.BackgroundTransparency = 1
+    Frame.Size = UDim2.new(1,0,0,50)
+
+    local Label = Instance.new("TextLabel")
+    Label.Parent = Frame
+    Label.BackgroundTransparency = 1
+    Label.Size = UDim2.new(1,0,0,20)
+    Label.Font = Enum.Font.Code
+    Label.Text = (args.Text or "Slider") .. ": " .. Default
+    Label.TextColor3 = Color3.fromRGB(255,255,255)
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Bar = Instance.new("Frame")
+    Bar.Parent = Frame
+    Bar.Position = UDim2.new(0,0,0,30)
+    Bar.Size = UDim2.new(1,0,0,8)
+    Bar.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    Bar.BorderSizePixel = 0
+
+    Instance.new("UICorner",Bar).CornerRadius = UDim.new(1,0)
+
+    local Fill = Instance.new("Frame")
+    Fill.Parent = Bar
+    Fill.Size = UDim2.new((Default-Min)/(Max-Min),0,1,0)
+    Fill.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    Fill.BorderSizePixel = 0
+
+    Instance.new("UICorner",Fill).CornerRadius = UDim.new(1,0)
+
+    local Sliding = false
+
+    Bar.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            Sliding = true
+        end
+    end)
+
+    UIS.InputEnded:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            Sliding = false
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(Input)
+        if Sliding and Input.UserInputType == Enum.UserInputType.MouseMovement then
+            local SizeX = math.clamp(
+                (Input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X,
+                0,
+                1
+            )
+
+            Fill.Size = UDim2.new(SizeX,0,1,0)
+
+            local Value = math.floor(((Max - Min) * SizeX) + Min)
+
+            Label.Text = (args.Text or "Slider") .. ": " .. Value
+
+            pcall(function()
+                if args.Callback then
+                    args.Callback(Value)
+                end
+            end)
+        end
+    end)
+
+    UpdateCanvas()
+end
+
+UIS.InputBegan:Connect(function(Input,gp)
+    if gp then return end
+
+    if Input.KeyCode == Enum.KeyCode.RightControl then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    end
+end)
+
+return ScreenGuitabContainer.Size = UDim2.new(1, -40, 1, -100)
 tabContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
 tabContainer.ScrollBarThickness = 2
 tabContainer.Visible = false
