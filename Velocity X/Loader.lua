@@ -907,6 +907,7 @@ local antiGameplayPauseCtrl = addToggle(ScrollingFrame, "Anti Gameplay Pause", c
             antiGameplayPauseThread = task.spawn(function()
                 while antiGameplayPauseRunning do
                     pcall(function()
+                        game:GetService("GuiService"):SetGameplayPausedNotificationEnabled(false)
                         game:GetService("Players").LocalPlayer.GameplayPaused = false
                     end)
                     task.wait()
