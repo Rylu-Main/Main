@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 
 pcall(function()
@@ -41,6 +42,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local Container = Instance.new("ScrollingFrame")
 Container.Parent = Main
+Container.Name = "Container"
 Container.Position = UDim2.new(0,15,0,50)
 Container.Size = UDim2.new(1,-30,1,-65)
 Container.BackgroundTransparency = 1
@@ -110,8 +112,29 @@ function _G.AddButton(args)
     Button.Text = args.Text or "Button"
     Button.TextColor3 = Color3.fromRGB(255,255,255)
     Button.TextSize = 14
+    Button.AutoButtonColor = false
 
     Instance.new("UICorner",Button).CornerRadius = UDim.new(0,8)
+
+    Button.MouseButton1Down:Connect(function()
+        TweenService:Create(
+            Button,
+            TweenInfo.new(0.08),
+            {
+                Size = UDim2.new(1,-4,0,28)
+            }
+        ):Play()
+    end)
+
+    Button.MouseButton1Up:Connect(function()
+        TweenService:Create(
+            Button,
+            TweenInfo.new(0.08),
+            {
+                Size = UDim2.new(1,0,0,32)
+            }
+        ):Play()
+    end)
 
     Button.MouseButton1Click:Connect(function()
         pcall(function()
@@ -137,6 +160,7 @@ function _G.AddToggle(args)
     Button.Font = Enum.Font.Code
     Button.TextColor3 = Color3.fromRGB(255,255,255)
     Button.TextSize = 14
+    Button.AutoButtonColor = false
 
     Instance.new("UICorner",Button).CornerRadius = UDim.new(0,8)
 
@@ -145,6 +169,16 @@ function _G.AddToggle(args)
             (args.Text or "Toggle")
             .. ": "
             .. (Enabled and "ON" or "OFF")
+
+        TweenService:Create(
+            Button,
+            TweenInfo.new(0.2),
+            {
+                BackgroundColor3 = Enabled
+                    and Color3.fromRGB(40,120,40)
+                    or Color3.fromRGB(25,25,25)
+            }
+        ):Play()
     end
 
     Update()
@@ -155,6 +189,24 @@ function _G.AddToggle(args)
         end
 
         Debounce = true
+
+        TweenService:Create(
+            Button,
+            TweenInfo.new(0.08),
+            {
+                Size = UDim2.new(1,-4,0,28)
+            }
+        ):Play()
+
+        task.wait(0.08)
+
+        TweenService:Create(
+            Button,
+            TweenInfo.new(0.08),
+            {
+                Size = UDim2.new(1,0,0,32)
+            }
+        ):Play()
 
         Enabled = not Enabled
         Update()
@@ -220,6 +272,7 @@ function _G.AddDropdown(args)
     Holder.Parent = Container
     Holder.Size = UDim2.new(1,0,0,32)
     Holder.BackgroundTransparency = 1
+    Holder.ClipsDescendants = true
 
     local MainButton = Instance.new("TextButton")
     MainButton.Parent = Holder
@@ -230,6 +283,7 @@ function _G.AddDropdown(args)
     MainButton.Text = (args.Text or "Dropdown") .. " ▼"
     MainButton.TextColor3 = Color3.fromRGB(255,255,255)
     MainButton.TextSize = 14
+    MainButton.AutoButtonColor = false
 
     Instance.new("UICorner",MainButton).CornerRadius = UDim.new(0,8)
 
@@ -258,6 +312,7 @@ function _G.AddDropdown(args)
         Option.Text = tostring(v)
         Option.TextColor3 = Color3.fromRGB(255,255,255)
         Option.TextSize = 13
+        Option.AutoButtonColor = false
 
         Instance.new("UICorner",Option).CornerRadius = UDim.new(0,8)
 
@@ -266,6 +321,24 @@ function _G.AddDropdown(args)
                 (args.Text or "Dropdown")
                 .. ": "
                 .. tostring(v)
+
+            TweenService:Create(
+                Option,
+                TweenInfo.new(0.1),
+                {
+                    BackgroundColor3 = Color3.fromRGB(60,60,60)
+                }
+            ):Play()
+
+            task.wait(0.1)
+
+            TweenService:Create(
+                Option,
+                TweenInfo.new(0.15),
+                {
+                    BackgroundColor3 = Color3.fromRGB(30,30,30)
+                }
+            ):Play()
 
             pcall(function()
                 if args.Callback then
@@ -279,12 +352,40 @@ function _G.AddDropdown(args)
         Open = not Open
 
         if Open then
-            Holder.Size = UDim2.new(1,0,0,36 + Total)
-            List.Size = UDim2.new(1,0,0,Total)
+            TweenService:Create(
+                Holder,
+                TweenInfo.new(0.25,Enum.EasingStyle.Quart),
+                {
+                    Size = UDim2.new(1,0,0,36 + Total)
+                }
+            ):Play()
+
+            TweenService:Create(
+                List,
+                TweenInfo.new(0.25,Enum.EasingStyle.Quart),
+                {
+                    Size = UDim2.new(1,0,0,Total)
+                }
+            ):Play()
         else
-            Holder.Size = UDim2.new(1,0,0,32)
-            List.Size = UDim2.new(1,0,0,0)
+            TweenService:Create(
+                Holder,
+                TweenInfo.new(0.25,Enum.EasingStyle.Quart),
+                {
+                    Size = UDim2.new(1,0,0,32)
+                }
+            ):Play()
+
+            TweenService:Create(
+                List,
+                TweenInfo.new(0.25,Enum.EasingStyle.Quart),
+                {
+                    Size = UDim2.new(1,0,0,0)
+                }
+            ):Play()
         end
+
+        task.wait(0.26)
 
         UpdateCanvas()
     end)
