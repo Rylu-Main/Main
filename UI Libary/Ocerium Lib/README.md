@@ -1,2 +1,2 @@
 ## This script UI libary by redblues/JustAP1Player 
-- Some not this script malware or stealing stuff 
+- Some note this script malware or stealing stuff 
