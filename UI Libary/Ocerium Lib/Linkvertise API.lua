@@ -1,3 +1,23 @@
+--[[
+-- i ask chatgpt how works so is like this!
+Start
+ ↓
+Show support window
+ ↓
+If support:
+    Create task
+    Open Linkvertise
+    Validate completion
+Else:
+    Skip instantly
+
+ ↓
+Solved = true
+ ↓
+Continue script
+--]] 
+local Iris = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/UI%20Libary/Ocerium%20Lib/Iris.lua"))().Init(game.CoreGui)
+local MD5 = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/UI%20Libary/Ocerium%20Lib/MD5.lua"))()
 local LINKVERTISE_ID = 611550 -- id of linkvertise lol?
 
 local DONT_RENDER_CONFIRMATION_WINDOW = false
