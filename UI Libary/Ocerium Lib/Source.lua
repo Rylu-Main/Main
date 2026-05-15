@@ -3,8 +3,20 @@ local maker =
 	loadstring(game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/UI%20Libary/Ocerium%20Lib/Maker.lua"))()
 local make = maker.Instance
 
-local x = 750
-local y = 520
+-- Mobile-aware sizing
+local UIS_check = game:GetService("UserInputService")
+local vp = workspace.CurrentCamera.ViewportSize
+local isMobile = UIS_check.TouchEnabled and vp.X < 900
+
+local x = isMobile and math.clamp(vp.X - 16, 300, 420) or 750
+local y = isMobile and math.clamp(vp.Y - 20, 360, 500) or 520
+
+-- Mobile scale helpers
+local fs   = isMobile and 12 or 15   -- base font size
+local fs2  = isMobile and 13 or 16   -- slightly larger font size
+local ch   = isMobile and 34 or 40   -- component height
+local pad  = isMobile and 7  or 10   -- component list padding
+local spad = isMobile and 10 or 15   -- section list padding
 
 local SupportedProperties = {
 	"TextTransparency",
@@ -219,8 +231,8 @@ function Library.Main(text)
 		Parent = Main,
 		Name = "LogoIcon",
 		AnchorPoint = Vector2.new(0, 0),
-		Size = UDim2.new(0, 55, 0, 55),
-		Position = UDim2.new(1, -55, 0, 0),
+		Size = UDim2.new(0, isMobile and 36 or 55, 0, isMobile and 36 or 55),
+		Position = UDim2.new(1, isMobile and -36 or -55, 0, 0),
 		BorderSizePixel = 0,
 		BackgroundTransparency = 1,
 		Image = "rbxassetid://11345695781",
@@ -356,8 +368,8 @@ function Library.Main(text)
 	local Pages = make("Frame", {
 		Parent = Main,
 		Name = "Pages",
-		Position = UDim2.new(0, 15, 0, 65),
-		Size = UDim2.new(0.48, 0, 1, -75),
+		Position = UDim2.new(0, isMobile and 8 or 15, 0, isMobile and 50 or 65),
+		Size = UDim2.new(isMobile and 1 or 0.48, isMobile and -16 or 0, 1, isMobile and -58 or -75),
 		BorderSizePixel = 0,
 		BackgroundColor3 = Color3.fromRGB(195, 195, 250),
 		CornerRadius = UDim.new(0, 5),
@@ -383,8 +395,8 @@ function Library.Main(text)
 	local PagesButtonsCornerVisual = make("Frame", {
 		Parent = Main,
 		Name = "corner",
-		Position = UDim2.new(0, 15, 0, 15),
-		Size = UDim2.new(0.4, 0, 0, 35),
+		Position = UDim2.new(0, isMobile and 8 or 15, 0, isMobile and 10 or 15),
+		Size = UDim2.new(isMobile and 0.75 or 0.4, 0, 0, isMobile and 28 or 35),
 		BorderSizePixel = 0,
 		BackgroundColor3 = Color3.fromRGB(195, 195, 250),
 		BackgroundTransparency = 1,
@@ -395,7 +407,7 @@ function Library.Main(text)
 		Parent = PagesButtonsCornerVisual,
 		Name = "pagesbuttons",
 		Position = UDim2.new(0, 0, 0, 0),
-		Size = UDim2.new(1, 0, 0, 35),
+		Size = UDim2.new(1, 0, 0, isMobile and 28 or 35),
 		BorderSizePixel = 0,
 		BackgroundColor3 = Color3.fromRGB(195, 195, 250),
 		BackgroundTransparency = 1,
@@ -488,7 +500,7 @@ function Library.Main(text)
 		local PageButton = make("TextButton", {
 			Parent = PagesButtons,
 			Name = text,
-			Size = UDim2.new(0, 0, 0, 27),
+			Size = UDim2.new(0, 0, 0, isMobile and 22 or 27),
 			BorderSizePixel = 0,
 			BackgroundColor3 = Color3.fromRGB(195, 195, 250),
 			BackgroundTransparency = 1,
@@ -498,7 +510,7 @@ function Library.Main(text)
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextYAlignment = Enum.TextYAlignment.Center,
 			AutomaticSize = Enum.AutomaticSize.X,
-			TextSize = 16,
+			TextSize = fs2,
 			AutoButtonColor = false,
 		})
 
@@ -547,7 +559,7 @@ function Library.Main(text)
 		local SectionsList = make("UIListLayout", {
 			Parent = Page,
 			Name = "UIList",
-			Padding = UDim.new(0, 15),
+			Padding = UDim.new(0, spad),
 			FillDirection = Enum.FillDirection.Vertical,
 			HorizontalAlignment = Enum.HorizontalAlignment.Left,
 			VerticalAlignment = Enum.VerticalAlignment.Top,
@@ -610,7 +622,7 @@ function Library.Main(text)
 			local SectionTitle = make("TextLabel", {
 				Parent = Section,
 				Name = "TitleSection",
-				Size = UDim2.new(1, 0, 0, 16),
+				Size = UDim2.new(1, 0, 0, isMobile and 13 or 16),
 				BorderSizePixel = 0,
 				BackgroundColor3 = Color3.fromRGB(100, 100, 100),
 				BackgroundTransparency = 1,
@@ -619,7 +631,7 @@ function Library.Main(text)
 				Font = Enum.Font[Library["theme"]["Font"]],
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextYAlignment = Enum.TextYAlignment.Top,
-				TextSize = 16,
+				TextSize = fs2,
 				ZIndex = 2,
 				LayoutOrder = -9999,
 			})
@@ -627,7 +639,7 @@ function Library.Main(text)
 			local ComponentsList = make("UIListLayout", {
 				Parent = Section,
 				Name = "UIList",
-				Padding = UDim.new(0, 10),
+				Padding = UDim.new(0, pad),
 				FillDirection = Enum.FillDirection.Vertical,
 				HorizontalAlignment = Enum.HorizontalAlignment.Center,
 				VerticalAlignment = Enum.VerticalAlignment.Top,
@@ -639,7 +651,7 @@ function Library.Main(text)
 					local TitleLabel = make("TextLabel", {
 						Parent = Section,
 						Name = text,
-						Size = UDim2.new(0.96, 0, 0, 45),
+						Size = UDim2.new(0.96, 0, 0, isMobile and 38 or 45),
 						BorderSizePixel = 0,
 						BackgroundColor3 = Color3.fromRGB(100, 100, 100),
 						BackgroundTransparency = 1,
@@ -648,13 +660,13 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Left,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextSize = 18,
+						TextSize = isMobile and 14 or 18,
 						ZIndex = 2,
 					})
 					local SecondLabel = make("TextLabel", {
 						Parent = TitleLabel,
 						Name = text,
-						Position = UDim2.new(0, 12, 0, 18),
+						Position = UDim2.new(0, isMobile and 8 or 12, 0, isMobile and 14 or 18),
 						Size = UDim2.new(1, -14, 0, 5),
 						BorderSizePixel = 0,
 						BackgroundColor3 = Color3.fromRGB(195, 195, 250),
@@ -665,7 +677,7 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Left,
 						AutomaticSize = Enum.AutomaticSize.Y,
-						TextSize = 15,
+						TextSize = fs,
 						ZIndex = 2,
 					})
 
@@ -687,7 +699,7 @@ function Library.Main(text)
 					local Toggle = make("TextButton", {
 						Parent = Section,
 						Name = text,
-						Size = UDim2.new(0.96, 0, 0, 40),
+						Size = UDim2.new(0.96, 0, 0, ch),
 						BorderSizePixel = 0,
 						BackgroundColor3 = Color3.fromRGB(100, 100, 100),
 						BackgroundTransparency = 1,
@@ -696,7 +708,7 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Left,
 						TextYAlignment = Enum.TextYAlignment.Center,
-						TextSize = 15,
+						TextSize = fs,
 						ZIndex = 2,
 					})
 
@@ -784,7 +796,7 @@ function Library.Main(text)
 					local Button = make("TextButton", {
 						Parent = Section,
 						Name = text,
-						Size = UDim2.new(0.96, 0, 0, 40),
+						Size = UDim2.new(0.96, 0, 0, ch),
 						BorderSizePixel = 0,
 						CornerRadius = UDim.new(0, 5),
 						BackgroundColor3 = Library["theme"]["BrighterMainColor"],
@@ -794,7 +806,7 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Center,
 						TextYAlignment = Enum.TextYAlignment.Center,
-						TextSize = 15,
+						TextSize = fs,
 						ZIndex = 2,
 						AutoButtonColor = false,
 						ClipsDescendants = true,
@@ -867,7 +879,7 @@ function Library.Main(text)
 					local Dropdown = make("TextButton", {
 						Parent = Section,
 						Name = arg1,
-						Size = UDim2.new(0.96, 0, 0, 40),
+						Size = UDim2.new(0.96, 0, 0, ch),
 						BorderSizePixel = 0,
 						CornerRadius = UDim.new(0, 5),
 						BackgroundColor3 = Library["theme"]["BrighterMainColor"],
@@ -877,7 +889,7 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Left,
 						TextYAlignment = Enum.TextYAlignment.Center,
-						TextSize = 18,
+						TextSize = fs2,
 						ZIndex = 2,
 						AutoButtonColor = false,
 					})
@@ -885,7 +897,7 @@ function Library.Main(text)
 					local DropdownLabel = make("TextLabel", {
 						Parent = Dropdown,
 						Name = "dropdownlabel",
-						Size = UDim2.new(1, 0, 0, 40),
+						Size = UDim2.new(1, 0, 0, ch),
 						Position = UDim2.new(0, 0, 0, 0),
 						BorderSizePixel = 0,
 						CornerRadius = UDim.new(0, 5),
@@ -896,7 +908,7 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Left,
 						TextYAlignment = Enum.TextYAlignment.Center,
-						TextSize = 15,
+						TextSize = fs,
 						ZIndex = 2,
 					})
 
@@ -964,11 +976,11 @@ function Library.Main(text)
 						if isopened then
 							Tween(ArrowIcon, 0.5, { Rotation = 90 })
 							SelectablesFrameVisual:TweenSize(UDim2.new(1, 0, 0, 0), "Out", "Quart", 0.5, true)
-							Dropdown:TweenSize(UDim2.new(0.96, 0, 0, 40), "Out", "Quart", 0.5, true)
+							Dropdown:TweenSize(UDim2.new(0.96, 0, 0, ch), "Out", "Quart", 0.5, true)
 						else
 							Tween(ArrowIcon, 0.5, { Rotation = 180 })
-							SelectablesFrameVisual:TweenSize(UDim2.new(1, 0, 0, 100), "Out", "Quart", 0.5, true)
-							Dropdown:TweenSize(UDim2.new(0.96, 0, 0, 140), "Out", "Quart", 0.5, true)
+							SelectablesFrameVisual:TweenSize(UDim2.new(1, 0, 0, isMobile and 80 or 100), "Out", "Quart", 0.5, true)
+							Dropdown:TweenSize(UDim2.new(0.96, 0, 0, isMobile and 114 or 140), "Out", "Quart", 0.5, true)
 						end
 						isopened = not isopened
 					end)
@@ -1060,7 +1072,7 @@ function Library.Main(text)
 					local Slider = make("TextLabel", {
 						Parent = Section,
 						Name = arg1,
-						Size = UDim2.new(0.96, 0, 0, 40),
+						Size = UDim2.new(0.96, 0, 0, ch),
 						BorderSizePixel = 0,
 						CornerRadius = UDim.new(0, 5),
 						BackgroundColor3 = Library["theme"]["BrighterMainColor"],
@@ -1070,7 +1082,7 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Left,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextSize = 15,
+						TextSize = fs,
 						ZIndex = 2,
 					})
 
@@ -1265,7 +1277,7 @@ function Library.Main(text)
 					local Slider2 = make("TextLabel", {
 						Parent = Section,
 						Name = arg1,
-						Size = UDim2.new(0.96, 0, 0, 40),
+						Size = UDim2.new(0.96, 0, 0, ch),
 						BorderSizePixel = 0,
 						CornerRadius = UDim.new(0, 5),
 						BackgroundColor3 = Library["theme"]["BrighterMainColor"],
@@ -1275,7 +1287,7 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Left,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextSize = 15,
+						TextSize = fs,
 						ZIndex = 2,
 					})
 
@@ -1597,7 +1609,7 @@ function Library.Main(text)
                     local TextboxFrame = make("TextButton", {
 						Parent = Section,
 						Name = text,
-						Size = UDim2.new(0.96, 0, 0, 40),
+						Size = UDim2.new(0.96, 0, 0, ch),
 						BorderSizePixel = 0,
 						CornerRadius = UDim.new(0, 5),
 						BackgroundColor3 = Library["theme"]["BrighterMainColor"],
@@ -1607,7 +1619,7 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Center,
 						TextYAlignment = Enum.TextYAlignment.Center,
-						TextSize = 15,
+						TextSize = fs,
 						ZIndex = 2,
 						AutoButtonColor = false,
 						ClipsDescendants = true,
@@ -1616,7 +1628,7 @@ function Library.Main(text)
                     make("TextLabel", {
 						Parent = TextboxFrame,
 						Name = "dropdownlabel",
-						Size = UDim2.new(1, 0, 0, 40),
+						Size = UDim2.new(1, 0, 0, ch),
 						Position = UDim2.new(0, 0, 0, 0),
 						BorderSizePixel = 0,
 						CornerRadius = UDim.new(0, 5),
@@ -1627,7 +1639,7 @@ function Library.Main(text)
 						Font = Enum.Font[Library["theme"]["Font"]],
 						TextXAlignment = Enum.TextXAlignment.Left,
 						TextYAlignment = Enum.TextYAlignment.Center,
-						TextSize = 15,
+						TextSize = fs,
 						ZIndex = 2,
 					})
 
@@ -1689,8 +1701,8 @@ function Library.Main(text)
 		local Logs = make("ScrollingFrame", {
 			Parent = Main,
 			Name = "Logs",
-			Position = UDim2.new(0.52, 0, 0, 55),
-			Size = UDim2.new(0.46, 0, 1, -75),
+			Position = isMobile and UDim2.new(0, 8, 0, 50) or UDim2.new(0.52, 0, 0, 55),
+			Size = isMobile and UDim2.new(1, -16, 1, -58) or UDim2.new(0.46, 0, 1, -75),
 			BorderSizePixel = 0,
 			BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 			BackgroundTransparency = 1,
@@ -1698,13 +1710,14 @@ function Library.Main(text)
 			ScrollBarThickness = 0,
 			CanvasSize = UDim2.new(0, 0, 0, 0),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			Visible = false,
 		})
 
 		local LogsTitle = make("TextLabel", {
 			Parent = Main,
 			Name = "TitleLogs",
-			Position = UDim2.new(0.52, 0, 0, 20),
-			Size = UDim2.new(0.46, 0, 0, 16),
+			Position = isMobile and UDim2.new(0, 8, 0, 10) or UDim2.new(0.52, 0, 0, 20),
+			Size = isMobile and UDim2.new(0.5, 0, 0, 16) or UDim2.new(0.46, 0, 0, 16),
 			BorderSizePixel = 0,
 			BackgroundColor3 = Color3.fromRGB(100, 100, 100),
 			BackgroundTransparency = 1,
@@ -1713,8 +1726,9 @@ function Library.Main(text)
 			Font = Enum.Font[Library["theme"]["Font"]],
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Top,
-			TextSize = 18,
+			TextSize = isMobile and 14 or 18,
 			ZIndex = 2,
+			Visible = false,
 		})
 
 		make("Frame", {
