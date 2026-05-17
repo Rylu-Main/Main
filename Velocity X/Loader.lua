@@ -64,8 +64,417 @@ if getgenv().Velocity_X_Loader then
     end
     return
 end
-getgenv().Velocity_X_Loader = true
+local cloneref = cloneref or function(obj) return obj end
+local CoreGui = cloneref(game:GetService("CoreGui"))
+local HttpService = cloneref(game:GetService("HttpService"))
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
+local CoreGui
+if RunService:IsStudio() then
+    CoreGui = player.PlayerGui
+else
+    CoreGui = game:GetService("CoreGui")
+end
+local gui = Instance.new("ScreenGui")
+gui.Name = "Introvert"
+gui.Parent = CoreGui
+gui.IgnoreGuiInset = true
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 999999
+
+local sound = Instance.new("Sound")
+sound.Parent = gui
+sound.SoundId = "rbxassetid://8745692251"
+sound.Volume = 2
+sound:Play()
+
+local bg = Instance.new("Frame")
+bg.Parent = gui
+bg.Size = UDim2.new(1,0,1,0)
+bg.BackgroundColor3 = Color3.new(0,0,0)
+bg.BorderSizePixel = 0
+
+local image = Instance.new("ImageLabel")
+image.Parent = gui
+image.BackgroundTransparency = 1
+image.Image = "rbxassetid://103887859853708"
+image.Size = UDim2.new(0,0,0,0)
+image.Position = UDim2.new(0.5,0,0.5,0)
+image.AnchorPoint = Vector2.new(0.5,0.5)
+image.ImageTransparency = 1
+image.Rotation = -180
+image.ZIndex = 5
+
+local glow = Instance.new("ImageLabel")
+glow.Parent = gui
+glow.BackgroundTransparency = 1
+glow.Image = "rbxassetid://5028857084"
+glow.Size = UDim2.new(0,0,0,0)
+glow.Position = UDim2.new(0.5,0,0.5,0)
+glow.AnchorPoint = Vector2.new(0.5,0.5)
+glow.ImageTransparency = 1
+glow.ZIndex = 4
+
+local title = Instance.new("TextLabel")
+title.Parent = gui
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1,0,0.1,0)
+title.Position = UDim2.new(0,-1000,0.37,0)
+
+title.Text = "Velocity X Loader V.1.1"
+title.Font = Enum.Font.Arcade
+title.TextScaled = true
+title.TextTransparency = 1
+title.TextColor3 = Color3.fromRGB(255,215,0)
+title.TextStrokeTransparency = 0
+title.TextStrokeColor3 = Color3.fromRGB(120,80,0)
+title.ZIndex = 10
+
+local sub = Instance.new("TextLabel")
+sub.Parent = gui
+sub.BackgroundTransparency = 1
+sub.Size = UDim2.new(1,0,0.05,0)
+sub.Position = UDim2.new(0,1000,0.47,0)
+
+sub.Text = "UwU Does need furry?"
+sub.Font = Enum.Font.Arcade
+sub.TextScaled = true
+sub.TextColor3 = Color3.fromRGB(255,255,255)
+sub.TextTransparency = 1
+sub.ZIndex = 10
+
+local barBg = Instance.new("Frame")
+barBg.Parent = gui
+barBg.Size = UDim2.new(0.4,0,0.015,0)
+barBg.Position = UDim2.new(0.3,0,0.7,0)
+barBg.BackgroundColor3 = Color3.fromRGB(40,40,40)
+barBg.BorderSizePixel = 0
+barBg.Visible = false
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(1,0)
+corner.Parent = barBg
+
+local bar = Instance.new("Frame")
+bar.Parent = barBg
+bar.Size = UDim2.new(0,0,1,0)
+bar.BorderSizePixel = 0
+
+local corner2 = Instance.new("UICorner")
+corner2.CornerRadius = UDim.new(1,0)
+corner2.Parent = bar
+
+local barGradient = Instance.new("UIGradient")
+barGradient.Parent = bar
+
+local progressText = Instance.new("TextLabel")
+progressText.Parent = gui
+progressText.BackgroundTransparency = 1
+progressText.Size = UDim2.new(0.4,0,0.03,0)
+progressText.Position = UDim2.new(0.3,0,0.725,0)
+
+progressText.Font = Enum.Font.Code
+progressText.TextScaled = true
+progressText.TextColor3 = Color3.fromRGB(255,255,255)
+progressText.TextStrokeTransparency = 0.4
+progressText.TextStrokeColor3 = Color3.fromRGB(120,80,0)
+progressText.Text = "0/100"
+progressText.ZIndex = 20
+
+local progressGradient = Instance.new("UIGradient")
+progressGradient.Parent = progressText
+
+local flash = Instance.new("Frame")
+flash.Parent = gui
+flash.Size = UDim2.new(1,0,1,0)
+flash.BackgroundColor3 = Color3.new(1,1,1)
+flash.BackgroundTransparency = 1
+flash.ZIndex = 100
+
+local goldGradient = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(255,240,150)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,255,255)),
+    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(255,220,50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,170,0))
+}
+
+barGradient.Color = goldGradient
+progressGradient.Color = goldGradient
+
+task.spawn(function()
+    while gui.Parent do
+        barGradient.Rotation += 1
+        progressGradient.Rotation += 1
+
+        barGradient.Offset = Vector2.new(math.sin(tick()) * 0.3,0)
+        progressGradient.Offset = Vector2.new(math.sin(tick()) * 0.3,0)
+
+        task.wait()
+    end
+end)
+
+TweenService:Create(
+    flash,
+    TweenInfo.new(0.15),
+    {BackgroundTransparency = 0.4}
+):Play()
+
+task.wait(0.15)
+
+TweenService:Create(
+    flash,
+    TweenInfo.new(0.5),
+    {BackgroundTransparency = 1}
+):Play()
+
+TweenService:Create(
+    image,
+    TweenInfo.new(
+        1.5,
+        Enum.EasingStyle.Back,
+        Enum.EasingDirection.Out
+    ),
+    {
+        Size = UDim2.new(0,500,0,500),
+        Rotation = 0,
+        ImageTransparency = 0
+    }
+):Play()
+
+TweenService:Create(
+    glow,
+    TweenInfo.new(
+        1.5,
+        Enum.EasingStyle.Quad,
+        Enum.EasingDirection.Out
+    ),
+    {
+        Size = UDim2.new(0,700,0,700),
+        ImageTransparency = 0.5
+    }
+):Play()
+
+task.wait(0.3)
+
+TweenService:Create(
+    title,
+    TweenInfo.new(
+        1,
+        Enum.EasingStyle.Exponential,
+        Enum.EasingDirection.Out
+    ),
+    {
+        Position = UDim2.new(0,0,0.37,0),
+        TextTransparency = 0
+    }
+):Play()
+
+task.wait(0.2)
+
+TweenService:Create(
+    sub,
+    TweenInfo.new(
+        1,
+        Enum.EasingStyle.Exponential,
+        Enum.EasingDirection.Out
+    ),
+    {
+        Position = UDim2.new(0,0,0.47,0),
+        TextTransparency = 0
+    }
+):Play()
+
+task.wait(0.5)
+
+barBg.Visible = true
+
+
+task.spawn(function()
+    for i = 0,100 do
+        progressText.Text = i.."/100"
+
+        bar.Size = UDim2.new(i/100,0,1,0)
+
+        task.wait(0.03)
+    end
+
+    
+    progressText.Text = "Loaded!"
+
+    TweenService:Create(
+        progressText,
+        TweenInfo.new(
+            0.5,
+            Enum.EasingStyle.Back,
+            Enum.EasingDirection.Out
+        ),
+        {
+            Rotation = 2
+        }
+    ):Play()
+
+    -- FLASH EFFECT
+    TweenService:Create(
+        flash,
+        TweenInfo.new(0.2),
+        {
+            BackgroundTransparency = 0.7
+        }
+    ):Play()
+
+    task.wait(0.2)
+
+    TweenService:Create(
+        flash,
+        TweenInfo.new(0.4),
+        {
+            BackgroundTransparency = 1
+        }
+    ):Play()
+end)
+
+task.spawn(function()
+    while gui.Parent do
+        TweenService:Create(
+            image,
+            TweenInfo.new(
+                2,
+                Enum.EasingStyle.Sine,
+                Enum.EasingDirection.InOut
+            ),
+            {
+                Rotation = 8,
+                Size = UDim2.new(0,530,0,530)
+            }
+        ):Play()
+
+        TweenService:Create(
+            glow,
+            TweenInfo.new(
+                2,
+                Enum.EasingStyle.Sine,
+                Enum.EasingDirection.InOut
+            ),
+            {
+                Rotation = -15,
+                Size = UDim2.new(0,760,0,760)
+            }
+        ):Play()
+
+        task.wait(2)
+
+        TweenService:Create(
+            image,
+            TweenInfo.new(
+                2,
+                Enum.EasingStyle.Sine,
+                Enum.EasingDirection.InOut
+            ),
+            {
+                Rotation = -8,
+                Size = UDim2.new(0,500,0,500)
+            }
+        ):Play()
+
+        TweenService:Create(
+            glow,
+            TweenInfo.new(
+                2,
+                Enum.EasingStyle.Sine,
+                Enum.EasingDirection.InOut
+            ),
+            {
+                Rotation = 15,
+                Size = UDim2.new(0,700,0,700)
+            }
+        ):Play()
+
+        task.wait(2)
+    end
+end)
+
+task.wait(4)
+
+TweenService:Create(
+    flash,
+    TweenInfo.new(0.4),
+    {BackgroundTransparency = 0.2}
+):Play()
+
+task.wait(0.3)
+
+TweenService:Create(
+    image,
+    TweenInfo.new(
+        1,
+        Enum.EasingStyle.Back,
+        Enum.EasingDirection.In
+    ),
+    {
+        Size = UDim2.new(0,0,0,0),
+        Rotation = 180,
+        ImageTransparency = 1
+    }
+):Play()
+
+TweenService:Create(
+    glow,
+    TweenInfo.new(1),
+    {
+        ImageTransparency = 1,
+        Size = UDim2.new(0,0,0,0)
+    }
+):Play()
+
+TweenService:Create(
+    title,
+    TweenInfo.new(1),
+    {
+        Position = UDim2.new(0,-1000,0.37,0),
+        TextTransparency = 1
+    }
+):Play()
+
+TweenService:Create(
+    sub,
+    TweenInfo.new(1),
+    {
+        Position = UDim2.new(0,1000,0.47,0),
+        TextTransparency = 1
+    }
+):Play()
+
+TweenService:Create(
+    barBg,
+    TweenInfo.new(1),
+    {
+        BackgroundTransparency = 1
+    }
+):Play()
+
+TweenService:Create(
+    bar,
+    TweenInfo.new(1),
+    {
+        BackgroundTransparency = 1
+    }
+):Play()
+
+TweenService:Create(
+    progressText,
+    TweenInfo.new(1),
+    {
+        TextTransparency = 1
+    }
+):Play()
+
+task.wait(1.5)
+
+gui:Destroy()
 local Notify
 pcall(function()
     Notify = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/UI%20Libary/Nofication/BocusLuke.lua"))()
@@ -132,13 +541,6 @@ local function GetGreetingAndTime()
 
     return greeting, emoji, timeStr
 end
-
-local cloneref = cloneref or function(obj) return obj end
-local CoreGui = cloneref(game:GetService("CoreGui"))
-local HttpService = cloneref(game:GetService("HttpService"))
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
 
 local b='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 local function base64_decode(data)
