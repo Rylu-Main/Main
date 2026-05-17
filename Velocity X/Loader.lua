@@ -64,6 +64,7 @@ if getgenv().Velocity_X_Loader then
     end
     return
 end
+getgenv().Velocity_X_Loader = true
 local cloneref = cloneref or function(obj) return obj end
 local CoreGui = cloneref(game:GetService("CoreGui"))
 local HttpService = cloneref(game:GetService("HttpService"))
