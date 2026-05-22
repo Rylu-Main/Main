@@ -66,18 +66,18 @@ if getgenv().Velocity_X_Loader then
 end
 getgenv().Velocity_X_Loader = true
 local cloneref = cloneref or function(obj) return obj end
-local CoreGui = cloneref(game:GetService("CoreGui"))
 local HttpService = cloneref(game:GetService("HttpService"))
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
+-- Single, authoritative CoreGui reference (Studio-safe)
 local CoreGui
 if RunService:IsStudio() then
     CoreGui = player.PlayerGui
 else
-    CoreGui = game:GetService("CoreGui")
+    CoreGui = cloneref(game:GetService("CoreGui"))
 end
 local gui = Instance.new("ScreenGui")
 gui.Name = "Introvert"
@@ -315,9 +315,14 @@ if _earlySkipIntro then
 end
 
 local Notify
-pcall(function()
-    Notify = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/UI%20Libary/Nofication/BocusLuke.lua"))()
+local notifyOk, notifyErr = pcall(function()
+    local src = game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/UI%20Libary/Nofication/BocusLuke.lua")
+    if not src or #src == 0 then error("Empty notification library response") end
+    Notify = loadstring(src)()
 end)
+if not notifyOk then
+    warn("[VelocityX] Notification library failed to load: " .. tostring(notifyErr))
+end
 
 local function showNotification(title, desc, outlineColor, duration, imageId)
     if Notify then
@@ -553,10 +558,24 @@ GreetingStroke.Thickness = 1
 GreetingStroke.Transparency = 0.4
 
 local function UpdateGreeting()
-    local playerName = Players.LocalPlayer.DisplayName
-    local greeting, emoji, timeStr = GetGreetingAndTime()
-    GreetingLabel.Text = string.format("%s, %s %s %s", greeting, playerName, emoji, timeStr)
+    -- FIX: wrapped in pcall so os.date quirks on unusual executors can't silently crash
+    -- and leave the label stuck showing Roblox's default "Label" text.
+    local ok, err = pcall(function()
+        local playerName = Players.LocalPlayer.DisplayName
+        local greeting, emoji, timeStr = GetGreetingAndTime()
+        GreetingLabel.Text = string.format("%s, %s %s %s", greeting, playerName, emoji, timeStr)
+    end)
+    if not ok then
+        -- Safe fallback so the label always shows something meaningful
+        GreetingLabel.Text = "Hello, " .. tostring(Players.LocalPlayer.DisplayName)
+        warn("[VelocityX] UpdateGreeting error:", err)
+    end
 end
+
+-- FIX: Populate greeting text RIGHT NOW — before Visible is set to true ~170 lines later.
+-- Without this call here the label shows Roblox's default "Label" text until the second
+-- UpdateGreeting() call near the bottom of the file.
+pcall(UpdateGreeting)
 
 local CloseButton = Instance.new("TextButton", MainBackground)
 CloseButton.BackgroundTransparency = 1
@@ -860,54 +879,103 @@ local function addToggle(parent, labelText, defaultValue, callback)
 end
 
 local CONFIG_FOLDER = "Velocity X"
-local CONFIG_FILE = CONFIG_FOLDER .. "/VelocityX_Settings.json"
+local CONFIG_FILE   = CONFIG_FOLDER .. "/VelocityX_Settings.json"
+local CONFIG_VER    = "v1.1"   -- bump this whenever the schema changes
 
-if makefolder and not isfolder(CONFIG_FOLDER) then
-    pcall(makefolder, CONFIG_FOLDER)
+-- ── Folder bootstrap ────────────────────────────────────────────────────────
+-- If the folder is missing, create it.  If creation itself errors (permission
+-- issue / executor quirk), we warn but continue so the rest of the UI still
+-- works — settings just won't persist that session.
+if makefolder then
+    local folderOk = pcall(function()
+        if not isfolder(CONFIG_FOLDER) then
+            makefolder(CONFIG_FOLDER)
+        end
+    end)
+    if not folderOk then
+        warn("[VelocityX] Could not create config folder — settings won't be saved this session.")
+    end
 end
 
+-- ── Default config values ────────────────────────────────────────────────────
 local config = {
-    autoSave = false,
-    autoInject = false,
-    autoExecutorLoader = false,
-    antiAfk = false,
-    antiFling = false,
-    antiGameplayPause = false,
-    skipIntroUI = false,
+    autoSave           = false,   -- save settings to disk automatically
+    autoInject         = false,   -- inject the script when the loader opens
+    autoExecutorLoader = false,   -- re-inject after teleport via queue_on_teleport
+    antiAfk            = false,   -- prevent the game from kicking you for idling
+    antiFling          = false,   -- stop other players' parts from colliding/flinging you
+    antiGameplayPause  = false,   -- prevent the pause screen from interrupting gameplay
+    skipIntroUI        = false,   -- skip the animated intro on the next launch
 }
 
+-- ── loadConfig ───────────────────────────────────────────────────────────────
+-- Reads settings from disk.  If the file is missing that's fine (first run).
+-- If the file is unreadable / corrupted we destroy the folder and recreate it
+-- cleanly so the next saveConfig() starts fresh without errors.
 local function loadConfig()
-    if readfile and isfile then
+    if not (readfile and isfile) then return end
+
+    local loadOk, loadErr = pcall(function()
+        if not isfile(CONFIG_FILE) then return end   -- first run — nothing to load
+
+        local raw  = readfile(CONFIG_FILE)
+        local data = HttpService:JSONDecode(raw)
+        if type(data) ~= "table" then
+            error("Config root is not a table — file is corrupted.")
+        end
+
+        -- Only accept boolean true; treat nil / wrong type as false for safety
+        config.autoSave           = data.autoSave           == true
+        config.autoInject         = data.autoInject         == true
+        config.autoExecutorLoader = data.autoExecutorLoader == true
+        config.antiAfk            = data.antiAfk            == true
+        config.antiFling          = data.antiFling          == true
+        config.antiGameplayPause  = data.antiGameplayPause  == true
+        config.skipIntroUI        = data.skipIntroUI        == true
+    end)
+
+    if not loadOk then
+        -- ── Corruption recovery ──────────────────────────────────────────────
+        -- Blow away the bad file/folder and recreate so future saves work.
+        warn("[VelocityX] Config corrupted (" .. tostring(loadErr) .. ") — resetting to defaults.")
         pcall(function()
-            if isfile(CONFIG_FILE) then
-                local data = HttpService:JSONDecode(readfile(CONFIG_FILE))
-                config.autoSave = data.autoSave or false
-                config.autoInject = data.autoInject or false
-                config.autoExecutorLoader = data.autoExecutorLoader or false
-                config.antiAfk = data.antiAfk or false
-                config.antiFling = data.antiFling or false
-                config.antiGameplayPause = data.antiGameplayPause or false
-                config.skipIntroUI = data.skipIntroUI or false
-            end
+            if isfile(CONFIG_FILE) then delfile(CONFIG_FILE) end
         end)
+        pcall(function()
+            if isfolder and isfolder(CONFIG_FOLDER) then
+                pcall(delfolder, CONFIG_FOLDER)   -- some executors don't expose delfolder — that's fine
+            end
+            if makefolder then makefolder(CONFIG_FOLDER) end
+        end)
+        -- config table is already at defaults; nothing more to do
     end
 end
 
+-- ── saveConfig ───────────────────────────────────────────────────────────────
+-- Writes settings to disk as human-readable JSON with a version field so you
+-- can tell at a glance which schema the file belongs to.
 local function saveConfig()
-    if writefile and config.autoSave then
-        pcall(function()
-            local data = HttpService:JSONEncode({
-                autoSave = config.autoSave,
-                autoInject = config.autoInject,
-                autoExecutorLoader = config.autoExecutorLoader,
-                antiAfk = config.antiAfk,
-                antiFling = config.antiFling,
-                antiGameplayPause = config.antiGameplayPause,
-                skipIntroUI = config.skipIntroUI,
-            })
-            writefile(CONFIG_FILE, data)
-        end)
-    end
+    if not (writefile and config.autoSave) then return end
+    pcall(function()
+        -- Re-create folder if it somehow disappeared between sessions
+        if makefolder and isfolder and not isfolder(CONFIG_FOLDER) then
+            makefolder(CONFIG_FOLDER)
+        end
+
+        local data = HttpService:JSONEncode({
+            -- ── Velocity X Settings · CONFIG_VER ──────────────────────────
+            _version           = CONFIG_VER,         -- schema version identifier
+
+            autoSave           = config.autoSave,            -- save on toggle change
+            autoInject         = config.autoInject,          -- inject at startup
+            autoExecutorLoader = config.autoExecutorLoader,  -- re-inject after teleport
+            antiAfk            = config.antiAfk,             -- anti-AFK kick
+            antiFling          = config.antiFling,           -- disable other players' collision
+            antiGameplayPause  = config.antiGameplayPause,   -- prevent gameplay pause screen
+            skipIntroUI        = config.skipIntroUI,         -- skip animated intro
+        })
+        writefile(CONFIG_FILE, data)
+    end)
 end
 
 local function setupAutoExecutorLoader()
@@ -965,31 +1033,35 @@ end
 
 local gameId = tostring(game.GameId)
 
-pcall(function()
+local githubOk, githubErr = pcall(function()
     local githubData = fetch(GITHUB_JSON_URL .. "?nocache=" .. tick())
-    if githubData then
-        local json = HttpService:JSONDecode(githubData)
-        if json and json[gameId] then
-            scriptUrl = GITHUB_BASE .. json[gameId].Path
-            gameName = json[gameId].Name
-        end
+    if not githubData or #githubData == 0 then error("Empty response") end
+    local json = HttpService:JSONDecode(githubData)
+    if json and json[gameId] then
+        scriptUrl = GITHUB_BASE .. json[gameId].Path
+        gameName = json[gameId].Name
     end
 end)
+if not githubOk then
+    warn("[VelocityX] GitHub game list failed: " .. tostring(githubErr))
+end
 
 if not scriptUrl then
-    pcall(function()
+    local pastebinOk, pastebinErr = pcall(function()
         local pastebinData = fetch(PASTEBIN_JSON_URL .. "?nocache=" .. tick())
-        if pastebinData then
-            local rawJson = HttpService:JSONDecode(pastebinData)
-            local json = decode_obfuscated(rawJson)
-            if json and json[gameId] then
-                local path = json[gameId].Path
-                local randomstring = json[gameId].randomstring or ""
-                scriptUrl = path .. randomstring
-                gameName = json[gameId].Name
-            end
+        if not pastebinData or #pastebinData == 0 then error("Empty response") end
+        local rawJson = HttpService:JSONDecode(pastebinData)
+        local json = decode_obfuscated(rawJson)
+        if json and json[gameId] then
+            local path = json[gameId].Path
+            local randomstring = json[gameId].randomstring or ""
+            scriptUrl = path .. randomstring
+            gameName = json[gameId].Name
         end
     end)
+    if not pastebinOk then
+        warn("[VelocityX] Pastefy game list failed: " .. tostring(pastebinErr))
+    end
 end
 
 if not scriptUrl then
@@ -1002,10 +1074,15 @@ end
 
 InjectButton.Text = gameName .. ".lua"
 
-pcall(function()
+local versionOk, versionErr = pcall(function()
     local versionStr = game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/Velocity%20X/config/version.json")
+    if not versionStr or #versionStr == 0 then error("Empty version response") end
     Version.Text = "Version: " .. versionStr
 end)
+if not versionOk then
+    Version.Text = "Version: ?"
+    warn("[VelocityX] Version fetch failed: " .. tostring(versionErr))
+end
 
 local function clearText()
     for _, v in ipairs(MainBackground:GetDescendants()) do
@@ -1036,12 +1113,82 @@ local function cleanupAntiFeatures()
     end
 end
 
+local function shakeError()
+    pcall(function()
+        local orig = MainBackground.Position
+        local shakeInfo = TweenInfo.new(0.07, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 4, true)
+        TweenService:Create(MainBackground, shakeInfo, {
+            Position = UDim2.new(orig.X.Scale, orig.X.Offset + 8, orig.Y.Scale, orig.Y.Offset)
+        }):Play()
+        task.wait(0.6)
+        TweenService:Create(MainBackground, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = orig
+        }):Play()
+    end)
+end
+
 local function injectScript()
     if injected then return end
     injected = true
-    pcall(function()
-        loadstring(game:HttpGet(scriptUrl))()
+
+    -- Attempt to fetch and run the resolved script URL
+    local fetchOk, fetchErr = pcall(function()
+        local scriptContent = game:HttpGet(scriptUrl)
+        if not scriptContent or #scriptContent == 0 then
+            error("Empty response from URL")
+        end
+        local loadOk, loadErr = pcall(loadstring(scriptContent))
+        if not loadOk then
+            error("Script runtime error: " .. tostring(loadErr))
+        end
     end)
+
+    if not fetchOk then
+        injected = false  -- allow retry
+        InjectButton.Text = gameName .. ".lua"
+
+        -- If game-specific script failed, fall back to Universal
+        if scriptUrl ~= UNIVERSAL_URL then
+            showNotification(
+                "⚠ Script Error",
+                "Game script failed — retrying with Universal.\n" .. tostring(fetchErr),
+                Color3.fromRGB(255, 150, 0), 6
+            )
+            task.spawn(shakeError)
+            scriptUrl = UNIVERSAL_URL
+            gameName  = "Universal"
+            InjectButton.Text = "Universal.lua"
+
+            -- Retry with universal
+            local retryOk, retryErr = pcall(function()
+                local content = game:HttpGet(UNIVERSAL_URL)
+                if not content or #content == 0 then error("Empty universal response") end
+                local ok, err = pcall(loadstring(content))
+                if not ok then error("Universal runtime error: " .. tostring(err)) end
+            end)
+            if retryOk then
+                injected = true
+            else
+                injected = false
+                showNotification(
+                    "✘ Universal Failed",
+                    "All scripts failed to load. Check your connection.\n" .. tostring(retryErr),
+                    Color3.fromRGB(255, 50, 50), 7
+                )
+                task.spawn(shakeError)
+                return  -- abort inject flow; UI stays open
+            end
+        else
+            -- Universal itself failed
+            showNotification(
+                "✘ Network Error",
+                "Failed to fetch Universal script. Check your connection.\n" .. tostring(fetchErr),
+                Color3.fromRGB(255, 50, 50), 7
+            )
+            task.spawn(shakeError)
+            return  -- abort inject flow; UI stays open
+        end
+    end
 end
 
 local function performAutoInject()
@@ -1454,59 +1601,129 @@ DeleteNoButton.MouseButton1Click:Connect(function()
     closeDeleteConfirmDialog()
 end)
 
--- Safe drag system: wrapped in pcall so any error won't break the loader or greeting labels
+-- ── Drag system ─────────────────────────────────────────────────────────────
+-- Strategy: try UIDragDetector first (better feel on supported engines).
+-- If the executor doesn't support it the pcall returns false and we fall
+-- through to the classic InputBegan/InputChanged approach that works everywhere.
+
 local _dragOk, _dragErr = pcall(function()
-    -- Verify UIDragDetector is supported before proceeding
-    if not pcall(function() Instance.new("UIDragDetector"):Destroy() end) then
-        warn("[VelocityX] UIDragDetector not supported on this client — drag disabled.")
-        return
-    end
+    -- Quick capability probe — if this throws, UIDragDetector is unsupported.
+    local probe = Instance.new("UIDragDetector")
+    probe:Destroy()
 
     local drag = Instance.new("UIDragDetector")
     drag.Parent = MainBackground
 
-    -- UIScale drives the grab-shrink without affecting layout
     local dragScale = Instance.new("UIScale")
     dragScale.Scale = 1
     dragScale.Parent = MainBackground
 
-    -- Smooth press-down tween
     local pressTweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad,    Enum.EasingDirection.Out)
-    -- Elastic snap-back on release
     local snapTweenInfo  = TweenInfo.new(0.35, Enum.EasingStyle.Elastic,  Enum.EasingDirection.Out)
 
     local function applyTween(obj, props, info)
         local ok, err = pcall(function()
             TweenService:Create(obj, info or pressTweenInfo, props):Play()
         end)
-        if not ok then
-            warn("[VelocityX] Drag tween error:", err)
-        end
+        if not ok then warn("[VelocityX] Drag tween error:", err) end
     end
 
-    -- NOTE: No rotation applied — only scale + transparency for a clean drag feel.
+    local isDragging    = false
+    local lastSwayTime  = 0
+    local SWAY_THROTTLE = 0.06
+    local SWAY_SPEED    = 3.2
+    local SWAY_AMP      = 5
 
-    local isDragging = false
+    local function settingsOpen()
+        return SettingsPanel and SettingsPanel.Visible
+    end
 
     drag.DragStart:Connect(function()
-        -- Pause animation if settings panel is open to avoid visual glitches
-        if SettingsPanel and SettingsPanel.Visible then return end
-        isDragging = true
+        if settingsOpen() then return end
+        isDragging   = true
+        lastSwayTime = tick()
         applyTween(dragScale,      { Scale = 0.96 })
         applyTween(MainBackground, { BackgroundTransparency = 0.5 })
     end)
 
     drag.DragContinue:Connect(function()
-        -- Nothing extra needed — UIDragDetector handles position
+        if not isDragging or settingsOpen() then return end
+        local now = tick()
+        if (now - lastSwayTime) < SWAY_THROTTLE then return end
+        lastSwayTime = now
+        local sway = math.sin(now * SWAY_SPEED) * SWAY_AMP
+        applyTween(MainBackground, { Rotation = sway })
     end)
 
     drag.DragEnd:Connect(function()
-        isDragging = false
-        applyTween(dragScale,      { Scale = 1 }, snapTweenInfo)
-        applyTween(MainBackground, { BackgroundTransparency = 0 }, snapTweenInfo)
+        isDragging   = false
+        lastSwayTime = 0
+        applyTween(dragScale,      { Scale = 1 },    snapTweenInfo)
+        applyTween(MainBackground, { BackgroundTransparency = 0, Rotation = 0 }, snapTweenInfo)
     end)
 end)
 
 if not _dragOk then
-    warn("[VelocityX] Drag system failed to initialise — loader continues normally. Error:", _dragErr)
+    -- FIX: UIDragDetector is not supported on this executor engine — use the
+    -- classic InputBegan/InputChanged approach that works on every executor.
+    warn("[VelocityX] UIDragDetector unavailable — using fallback drag. Reason:", _dragErr)
+
+    local UserInputService = game:GetService("UserInputService")
+    local dragging      = false
+    local dragStartMouse = nil   -- Vector2: mouse position when drag began
+    local dragStartPos   = nil   -- UDim2: MainBackground.Position when drag began
+
+    local function isDragInput(input)
+        return input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch
+    end
+
+    local function isMotionInput(input)
+        return input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+    end
+
+    -- Begin drag when the user presses on the main window
+    MainBackground.InputBegan:Connect(function(input)
+        if not isDragInput(input) then return end
+        if SettingsPanel and SettingsPanel.Visible then return end
+        dragging      = true
+        dragStartMouse = Vector2.new(input.Position.X, input.Position.Y)
+        dragStartPos   = MainBackground.Position
+        pcall(function()
+            TweenService:Create(MainBackground, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
+                BackgroundTransparency = 0.5
+            }):Play()
+        end)
+    end)
+
+    -- Update position while dragging (listen on game-level so movement outside
+    -- the frame is still captured)
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging or not isMotionInput(input) then return end
+        if SettingsPanel and SettingsPanel.Visible then return end
+
+        local delta = Vector2.new(input.Position.X, input.Position.Y) - dragStartMouse
+        local viewport = workspace.CurrentCamera.ViewportSize
+
+        -- Convert pixel delta to scale so the position stays consistent across resolutions
+        MainBackground.Position = UDim2.new(
+            dragStartPos.X.Scale + delta.X / viewport.X,
+            dragStartPos.X.Offset,
+            dragStartPos.Y.Scale + delta.Y / viewport.Y,
+            dragStartPos.Y.Offset
+        )
+    end)
+
+    -- Release drag on any input end
+    UserInputService.InputEnded:Connect(function(input)
+        if not isDragInput(input) then return end
+        if not dragging then return end
+        dragging = false
+        pcall(function()
+            TweenService:Create(MainBackground, TweenInfo.new(0.35, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
+                BackgroundTransparency = 0
+            }):Play()
+        end)
+    end)
 end
