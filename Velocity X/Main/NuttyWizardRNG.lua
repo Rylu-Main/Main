@@ -178,7 +178,7 @@ end)
 
 -- UI
 local Window = UI:CreateWindow({
-    ["Title"]  = "Nutty Wizards - ZhyTrizes",
+    ["Title"]  = "Nutty Wizards - ZhyTrizes | skid by Velocity (Alwi) ",
     ["Icon"]   = "wand-sparkles",
     ["Author"] = "by ZhyTrizes",
     ["Folder"] = "ZhyNuttyWizards_Final",
