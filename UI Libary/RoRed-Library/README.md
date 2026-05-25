@@ -3,7 +3,7 @@ A lightweight Roblox UI Library With Clean And Aesthetic UI, Version Of Wizard U
 
 ## Load Library
 ```lua
-local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/SagittariusTxtLc/Smileyy-Library/refs/heads/main/Sgd/Lib"))()
+local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/UI%20Libary/RoRed-Library/Source/Lib.luau"))()
 ```
 ## Load Window
 ```lua
