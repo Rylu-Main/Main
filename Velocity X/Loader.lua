@@ -109,7 +109,7 @@ local RunService   = game:GetService("RunService")
 local Players      = game:GetService("Players")
 local player       = Players.LocalPlayer
 local s            = string
-local r            = s["re" .. "verse"]
+local r            = s["rev" .. "erse"]
 
 -- ── CoreGui (Studio-safe) ────────────────────────────────────────────────────
 local CoreGui: Instance
