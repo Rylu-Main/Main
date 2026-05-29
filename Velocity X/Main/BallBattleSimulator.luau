@@ -413,7 +413,7 @@ mainTab:Button({
     end,
 })
 mainTab:Button({
-    Title    = "Rebirth (Manual)",
+    Title    = "anti afk",
     Callback = function()
     local VirtualUser = game:GetService("VirtualUser")
 local Players = game:GetService("Players")
