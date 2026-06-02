@@ -11,8 +11,8 @@ local RunService: RunService     = cloneref(game:GetService("RunService"))
 local player: Player             = Players.LocalPlayer
 
 -- ANTI-DUPE
-local existingGui = player:WaitForChild("PlayerGui"):FindFirstChild("4557HubGui")
-	or gethui():FindFirstChild("4557HubGui")
+local existingGui = player:WaitForChild("PlayerGui"):FindFirstChild("455HubGui")
+	or gethui():FindFirstChild("455HubGui")
 if existingGui then existingGui:Destroy() end
 if _G["4557Running"] then
 	_G["4557Running"] = false
@@ -28,7 +28,7 @@ Lib.__index = Lib
 
 -- Parent to gethui() so it survives resets and stays hidden from PlayerGui scans
 local _gui: ScreenGui = Instance.new("ScreenGui")
-_gui.Name           = "4557HubGui"
+_gui.Name           = "455HubGui"
 _gui.ResetOnSpawn   = false
 _gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 _gui.Parent         = gethui()
