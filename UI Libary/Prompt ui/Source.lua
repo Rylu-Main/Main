@@ -1,7 +1,5 @@
 local cloneref = cloneref or function(i) return i end
-
 local RunService = cloneref(game:GetService("RunService"))
-local Players = cloneref(game:GetService("Players"))
 
 local function NewScreen(ScreenName)
     local Screen = Instance.new("ScreenGui")
@@ -10,24 +8,32 @@ local function NewScreen(ScreenName)
     Screen.IgnoreGuiInset = true
     Screen.DisplayOrder = 999
 
-    local parentSuccess = pcall(function()
+    -- Try gethui() first
+    local ok1 = pcall(function()
         Screen.Parent = gethui()
     end)
+    if ok1 and Screen.Parent ~= nil then return Screen end
 
-    if not parentSuccess or Screen.Parent == nil then
-        local coreGuiSuccess = pcall(function()
-            local CoreGui = cloneref(game:GetService("CoreGui"))
-            pcall(function()
-                sethiddenproperty(Screen, "OnTopOfCoreBlur", true)
-            end)
-            Screen.Parent = CoreGui
+    -- Try CoreGui second
+    local ok2 = pcall(function()
+        local CoreGui = cloneref(game:GetService("CoreGui"))
+        pcall(function()
+            sethiddenproperty(Screen, "OnTopOfCoreBlur", true)
         end)
+        Screen.Parent = CoreGui
+    end)
+    if ok2 and Screen.Parent ~= nil then return Screen end
 
-        if not coreGuiSuccess or Screen.Parent == nil then
-            local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-            Screen.Parent = PlayerGui
-        end
-    end
+    -- Try PlayerGui third
+    local ok3 = pcall(function()
+        Screen.Parent = game:GetService("Players").LocalPlayer.PlayerGui
+    end)
+    if ok3 and Screen.Parent ~= nil then return Screen end
+
+    -- Last resort
+    pcall(function()
+        Screen.Parent = game.CoreGui
+    end)
 
     return Screen
 end
