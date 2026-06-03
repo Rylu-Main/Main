@@ -1,19 +1,52 @@
 local cloneref = cloneref or function(i) return i end
-local RunService = cloneref(game:GetService("RunService"))
-local CoreGui = cloneref(game:GetService("CoreGui"))
 
+local RunService = cloneref(game:GetService("RunService"))
+local Players = cloneref(game:GetService("Players"))
+
+-- Fix: Try CoreGui first, fallback to PlayerGui
 local function NewScreen(ScreenName)
     local Screen = Instance.new("ScreenGui")
     Screen.Name = ScreenName
     Screen.ResetOnSpawn = false
     Screen.IgnoreGuiInset = true
-    pcall(function()
-        sethiddenproperty(Screen, "OnTopOfCoreBlur", true)
+    Screen.DisplayOrder = 999
+
+    -- Try CoreGui first
+    local coreGuiSuccess = pcall(function()
+        local CoreGui = cloneref(game:GetService("CoreGui"))
+        pcall(function()
+            sethiddenproperty(Screen, "OnTopOfCoreBlur", true)
+        end)
+        Screen.Parent = CoreGui
     end)
-    Screen.Parent = CoreGui
+
+    -- Fallback to PlayerGui if CoreGui fails
+    if not coreGuiSuccess or Screen.Parent == nil then
+        warn("⚠ CoreGui failed, using PlayerGui")
+        local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+        Screen.Parent = PlayerGui
+    end
+
     return Screen
 end
 
+-- Try loading the original Roblox ErrorPrompt module
+local ErrorPrompt = nil
+local useOriginal = false
+
+pcall(function()
+    local CoreGui = cloneref(game:GetService("CoreGui"))
+    ErrorPrompt = getrenv().require(CoreGui.RobloxGui.Modules.ErrorPrompt)
+    useOriginal = true
+end)
+
+if useOriginal then
+    warn("Using original ErrorPrompt UI")
+else
+    warn("⚠ ErrorPrompt failed, using fallback UI")
+end
+
+-- Fallback UI builder
 local function BuildFallbackPrompt(Title, Message, Buttons, RichText)
     local Screen = NewScreen("Prompt")
 
@@ -116,6 +149,51 @@ local function BuildFallbackPrompt(Title, Message, Buttons, RichText)
     return Screen
 end
 
+-- Original ErrorPrompt UI builder
+local function BuildOriginalPrompt(Title, Message, Buttons, RichText)
+    local Screen = NewScreen("Prompt")
+    local Prompt = ErrorPrompt.new(
+        "Default",
+        {
+            MessageTextScaled = false,
+            PlayAnimation = false,
+            HideErrorCode = true
+        }
+    )
+
+    if RichText then
+        Prompt._frame.MessageArea.ErrorFrame.ErrorMessage.RichText = true
+    end
+
+    for _, Button in pairs(Buttons) do
+        local Old = Button.Callback
+        Button.Callback = function(...)
+            RunService:SetRobloxGuiFocused(false)
+            Prompt:_close()
+            Screen:Destroy()
+            return Old(...)
+        end
+    end
+
+    Prompt:setErrorTitle(Title)
+    Prompt:updateButtons(Buttons)
+    Prompt:setParent(Screen)
+    RunService:SetRobloxGuiFocused(true)
+    Prompt:_open(Message)
+    return Prompt, Screen
+end
+
 return function(Title, Message, Buttons, RichText)
+    if useOriginal then
+        local ok, result, screen = pcall(function()
+            return BuildOriginalPrompt(Title, Message, Buttons, RichText)
+        end)
+        if ok then
+            return result, screen
+        else
+            warn("⚠Original prompt call failed, switching to fallback: " .. tostring(result))
+        end
+    end
+
     return BuildFallbackPrompt(Title, Message, Buttons, RichText)
 end
