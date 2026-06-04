@@ -1,120 +1,84 @@
 local cloneref = cloneref or function(i) return i end
 local RunService = cloneref(game:GetService("RunService"))
+local CoreGui = cloneref(game:GetService("CoreGui"))
 
 local function NewScreen(ScreenName)
     local Screen = Instance.new("ScreenGui")
     Screen.Name = ScreenName
     Screen.ResetOnSpawn = false
     Screen.IgnoreGuiInset = true
-    Screen.DisplayOrder = 999
-
-    -- Try gethui() first
-    local ok1 = pcall(function()
-        Screen.Parent = gethui()
-    end)
-    if ok1 and Screen.Parent ~= nil then return Screen end
-
-    -- Try CoreGui second
-    local ok2 = pcall(function()
-        local CoreGui = cloneref(game:GetService("CoreGui"))
-        pcall(function()
-            sethiddenproperty(Screen, "OnTopOfCoreBlur", true)
-        end)
-        Screen.Parent = CoreGui
-    end)
-    if ok2 and Screen.Parent ~= nil then return Screen end
-
-    -- Try PlayerGui third
-    local ok3 = pcall(function()
-        Screen.Parent = game:GetService("Players").LocalPlayer.PlayerGui
-    end)
-    if ok3 and Screen.Parent ~= nil then return Screen end
-
-    -- Last resort
     pcall(function()
-        Screen.Parent = game.CoreGui
+        sethiddenproperty(Screen, "OnTopOfCoreBlur", true)
     end)
-
+    Screen.Parent = CoreGui
     return Screen
 end
-
-local ErrorPrompt = nil
-local useOriginal = false
-
-pcall(function()
-    local CoreGui = cloneref(game:GetService("CoreGui"))
-    ErrorPrompt = getrenv().require(CoreGui.RobloxGui.Modules.ErrorPrompt)
-    useOriginal = true
-end)
 
 local function BuildFallbackPrompt(Title, Message, Buttons, RichText)
     local Screen = NewScreen("Prompt")
 
+    -- Overlay
     local Overlay = Instance.new("Frame")
     Overlay.Size = UDim2.new(1, 0, 1, 0)
     Overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    Overlay.BackgroundTransparency = 0.5
+    Overlay.BackgroundTransparency = 0.45
     Overlay.BorderSizePixel = 0
-    Overlay.ZIndex = 1
     Overlay.Parent = Screen
 
+    -- Main Frame
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 500, 0, 280)
-    Frame.Position = UDim2.new(0.5, -250, 0.5, -140)
-    Frame.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
+    Frame.Size = UDim2.new(0, 420, 0, 220)
+    Frame.Position = UDim2.new(0.5, -210, 0.5, -110)
+    Frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
     Frame.BorderSizePixel = 0
-    Frame.ZIndex = 2
     Frame.Parent = Screen
-    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 10)
+
+    -- Title Bar
+    local TitleBar = Instance.new("Frame")
+    TitleBar.Size = UDim2.new(1, 0, 0, 48)
+    TitleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    TitleBar.BorderSizePixel = 0
+    TitleBar.Parent = Frame
+    Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 10)
 
     local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(1, -40, 0, 50)
-    TitleLabel.Position = UDim2.new(0, 20, 0, 15)
+    TitleLabel.Size = UDim2.new(1, -10, 1, 0)
+    TitleLabel.Position = UDim2.new(0, 10, 0, 0)
     TitleLabel.BackgroundTransparency = 1
     TitleLabel.Text = Title
     TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.TextSize = 22
+    TitleLabel.TextSize = 17
     TitleLabel.Font = Enum.Font.GothamBold
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
-    TitleLabel.TextWrapped = true
-    TitleLabel.ZIndex = 3
-    TitleLabel.Parent = Frame
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.Parent = TitleBar
 
-    local Divider = Instance.new("Frame")
-    Divider.Size = UDim2.new(1, -40, 0, 1)
-    Divider.Position = UDim2.new(0, 20, 0, 68)
-    Divider.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-    Divider.BorderSizePixel = 0
-    Divider.ZIndex = 3
-    Divider.Parent = Frame
-
+    -- Message
     local MsgLabel = Instance.new("TextLabel")
-    MsgLabel.Size = UDim2.new(1, -60, 0, 120)
-    MsgLabel.Position = UDim2.new(0, 30, 0, 80)
+    MsgLabel.Size = UDim2.new(1, -20, 0, 110)
+    MsgLabel.Position = UDim2.new(0, 10, 0, 55)
     MsgLabel.BackgroundTransparency = 1
     MsgLabel.Text = Message
-    MsgLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    MsgLabel.TextSize = 16
+    MsgLabel.TextColor3 = Color3.fromRGB(195, 195, 195)
+    MsgLabel.TextSize = 14
     MsgLabel.Font = Enum.Font.Gotham
     MsgLabel.TextWrapped = true
-    MsgLabel.TextXAlignment = Enum.TextXAlignment.Center
-    MsgLabel.TextYAlignment = Enum.TextYAlignment.Top
     MsgLabel.RichText = RichText or false
-    MsgLabel.ZIndex = 3
+    MsgLabel.TextXAlignment = Enum.TextXAlignment.Left
     MsgLabel.Parent = Frame
 
+    -- Button Row
     local ButtonFrame = Instance.new("Frame")
-    ButtonFrame.Size = UDim2.new(1, -40, 0, 48)
-    ButtonFrame.Position = UDim2.new(0, 20, 1, -60)
+    ButtonFrame.Size = UDim2.new(1, -20, 0, 38)
+    ButtonFrame.Position = UDim2.new(0, 10, 1, -48)
     ButtonFrame.BackgroundTransparency = 1
-    ButtonFrame.ZIndex = 3
     ButtonFrame.Parent = Frame
 
     local UIList = Instance.new("UIListLayout")
     UIList.FillDirection = Enum.FillDirection.Horizontal
-    UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    UIList.HorizontalAlignment = Enum.HorizontalAlignment.Right
     UIList.VerticalAlignment = Enum.VerticalAlignment.Center
-    UIList.Padding = UDim.new(0, 10)
+    UIList.Padding = UDim.new(0, 8)
     UIList.Parent = ButtonFrame
 
     local function closePrompt()
@@ -128,28 +92,17 @@ local function BuildFallbackPrompt(Title, Message, Buttons, RichText)
 
     for _, Button in ipairs(Buttons) do
         local Btn = Instance.new("TextButton")
-        Btn.Size = UDim2.new(0, 180, 0, 42)
+        Btn.Size = UDim2.new(0, 145, 0, 32)
         Btn.BackgroundColor3 = Button.Primary
-            and Color3.fromRGB(255, 255, 255)
-            or Color3.fromRGB(42, 42, 42)
-        Btn.BorderSizePixel = Button.Primary and 0 or 2
-        Btn.BorderColor3 = Color3.fromRGB(150, 150, 150)
+            and Color3.fromRGB(0, 120, 215)
+            or Color3.fromRGB(55, 55, 55)
         Btn.Text = Button.Text or "OK"
-        Btn.TextColor3 = Button.Primary
-            and Color3.fromRGB(0, 0, 0)
-            or Color3.fromRGB(255, 255, 255)
-        Btn.TextSize = 15
+        Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Btn.TextSize = 13
         Btn.Font = Enum.Font.GothamSemibold
-        Btn.ZIndex = 4
+        Btn.BorderSizePixel = 0
         Btn.Parent = ButtonFrame
-        Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 8)
-
-        Btn.MouseEnter:Connect(function()
-            Btn.BackgroundTransparency = 0.15
-        end)
-        Btn.MouseLeave:Connect(function()
-            Btn.BackgroundTransparency = 0
-        end)
+        Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
 
         Btn.MouseButton1Click:Connect(function()
             closePrompt()
@@ -163,48 +116,6 @@ local function BuildFallbackPrompt(Title, Message, Buttons, RichText)
     return Screen
 end
 
-local function BuildOriginalPrompt(Title, Message, Buttons, RichText)
-    local Screen = NewScreen("Prompt")
-    local Prompt = ErrorPrompt.new(
-        "Default",
-        {
-            MessageTextScaled = false,
-            PlayAnimation = false,
-            HideErrorCode = true
-        }
-    )
-
-    if RichText then
-        Prompt._frame.MessageArea.ErrorFrame.ErrorMessage.RichText = true
-    end
-
-    for _, Button in pairs(Buttons) do
-        local Old = Button.Callback
-        Button.Callback = function(...)
-            RunService:SetRobloxGuiFocused(false)
-            Prompt:_close()
-            Screen:Destroy()
-            return Old(...)
-        end
-    end
-
-    Prompt:setErrorTitle(Title)
-    Prompt:updateButtons(Buttons)
-    Prompt:setParent(Screen)
-    RunService:SetRobloxGuiFocused(true)
-    Prompt:_open(Message)
-    return Prompt, Screen
-end
-
 return function(Title, Message, Buttons, RichText)
-    if useOriginal then
-        local ok, result, screen = pcall(function()
-            return BuildOriginalPrompt(Title, Message, Buttons, RichText)
-        end)
-        if ok then
-            return result, screen
-        end
-    end
-
     return BuildFallbackPrompt(Title, Message, Buttons, RichText)
 end
