@@ -141,7 +141,7 @@ pcall(function()
     end
 end)
 -- function that start to count who executor my script
---[[
+
 local function log()
     task.spawn(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/Velocity%20X/config/Log.luau"))()
@@ -151,7 +151,6 @@ end
 task.spawn(function()
     log()
 end)
---]]
 if not _earlySkipIntro then
     sound:Play()
 
@@ -1584,69 +1583,121 @@ local function shakeError()
     end)
 end
 
-local function injectScript()
-    if injected then return end
-    injected = true
+-- ── Retry-aware inject (3 attempts per URL) ──────────────────────────────────
+local MAX_RETRIES: number = 3
+local RETRY_DELAY: number = 2  -- seconds between attempts
 
-    local fetchOk: boolean, fetchErr: any = pcall(function()
-        local scriptContent: string = game:HttpGet(scriptUrl :: string)
-        if not scriptContent or #scriptContent == 0 then
+local function tryFetchAndRun(url: string): (boolean, string)
+    local ok: boolean, err: any = pcall(function()
+        local content: string = game:HttpGet(url)
+        if not content or #content == 0 then
             error("Empty response from URL")
         end
-        local loadOk: boolean, loadErr: any = pcall(loadstring(scriptContent))
+        local loadOk: boolean, loadErr: any = pcall(loadstring(content))
         if not loadOk then
             error("Script runtime error: " .. tostring(loadErr))
         end
     end)
+    return ok, tostring(err)
+end
 
-    if not fetchOk then
-        injected          = false
-        InjectButton.Text = gameName .. ".lua"
+local function injectScript()
+    if injected then return end
+    injected = true
 
-        if scriptUrl ~= UNIVERSAL_URL then
+    setButtonActive(InjectButton, false)
+
+    local currentUrl:  string = scriptUrl :: string
+    local currentName: string = gameName
+    local lastErr:     string = ""
+
+    -- ── Phase 1: try current URL up to MAX_RETRIES times ──────────────────────
+    local phase1Ok: boolean = false
+    for attempt: number = 1, MAX_RETRIES do
+        InjectButton.Text = string.format("Attempt %d/%d...", attempt, MAX_RETRIES)
+        local ok: boolean, err: string = tryFetchAndRun(currentUrl)
+        if ok then
+            phase1Ok = true
+            break
+        end
+        lastErr = err
+        warn(string.format("[VelocityX] %s attempt %d/%d failed: %s", currentName, attempt, MAX_RETRIES, err))
+        if attempt < MAX_RETRIES then
             showNotification(
-                "⚠ Script Error",
-                "Game script failed — retrying with Universal.\n" .. tostring(fetchErr),
-                Color3.fromRGB(255, 150, 0), 6
+                string.format("⚠ Attempt %d/%d Failed", attempt, MAX_RETRIES),
+                "Retrying in " .. RETRY_DELAY .. "s...",
+                Color3.fromRGB(255, 150, 0), RETRY_DELAY
             )
-            task.spawn(shakeError)
-            scriptUrl = UNIVERSAL_URL
-            gameName  = "Universal"
-            InjectButton.Text = "Universal.lua"
-
-            local retryOk: boolean, retryErr: any = pcall(function()
-                local content: string = game:HttpGet(UNIVERSAL_URL)
-                if not content or #content == 0 then error("Empty universal response") end
-                local ok: boolean, err: any = pcall(loadstring(content))
-                if not ok then error("Universal runtime error: " .. tostring(err)) end
-            end)
-            if retryOk then
-                injected = true
-            else
-                injected = false
-                showNotification(
-                    "✘ Universal Failed",
-                    "All scripts failed to load. Check your connection.\n" .. tostring(retryErr),
-                    Color3.fromRGB(255, 50, 50), 7
-                )
-                task.spawn(shakeError)
-                return
-            end
-        else
-            showNotification(
-                "✘ Network Error",
-                "Failed to fetch Universal script. Check your connection.\n" .. tostring(fetchErr),
-                Color3.fromRGB(255, 50, 50), 7
-            )
-            task.spawn(shakeError)
-            return
+            task.wait(RETRY_DELAY)
         end
     end
+
+    if phase1Ok then
+        setButtonActive(InjectButton, true)
+        return  -- success – caller handles GUI close
+    end
+
+    -- ── Phase 2: game-specific URL failed → fall back to Universal ────────────
+    if currentUrl ~= UNIVERSAL_URL then
+        showNotification(
+            "⚠ Game Script Failed",
+            "All 3 attempts failed — switching to Universal script...",
+            Color3.fromRGB(255, 150, 0), 3
+        )
+        task.spawn(shakeError)
+        scriptUrl = UNIVERSAL_URL
+        gameName  = "Universal"
+
+        local phase2Ok: boolean = false
+        for attempt: number = 1, MAX_RETRIES do
+            InjectButton.Text = string.format("Universal %d/%d...", attempt, MAX_RETRIES)
+            local ok: boolean, err: string = tryFetchAndRun(UNIVERSAL_URL)
+            if ok then
+                phase2Ok = true
+                break
+            end
+            lastErr = err
+            warn(string.format("[VelocityX] Universal attempt %d/%d failed: %s", attempt, MAX_RETRIES, err))
+            if attempt < MAX_RETRIES then
+                showNotification(
+                    string.format("⚠ Universal %d/%d Failed", attempt, MAX_RETRIES),
+                    "Retrying in " .. RETRY_DELAY .. "s...",
+                    Color3.fromRGB(255, 150, 0), RETRY_DELAY
+                )
+                task.wait(RETRY_DELAY)
+            end
+        end
+
+        if phase2Ok then
+            setButtonActive(InjectButton, true)
+            return  -- success
+        end
+    end
+
+    -- ── All attempts exhausted ─────────────────────────────────────────────────
+    injected          = false
+    InjectButton.Text = gameName .. ".lua"
+    setButtonActive(InjectButton, true)
+    task.spawn(shakeError)
+
+    showErrorPanel(
+        "✘ All 3 Attempts Failed",
+        "Check your connection or the URL\nmay have been deleted.",
+        function()
+            task.spawn(injectScript)
+        end
+    )
+    showNotification(
+        "✘ All Attempts Failed (3/3)",
+        "Check your connection — the URL may have been deleted.",
+        Color3.fromRGB(255, 50, 50), 8
+    )
 end
 
 local function performAutoInject()
     if injected then return end
     injectScript()
+    if not injected then return end  -- failed – error panel shown, keep GUI open
     InjectButton.Text = "Injecting..."
     TweenService:Create(MainBackground, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
         Size = UDim2.new(0, 0, 0, 0), ImageTransparency = 1
