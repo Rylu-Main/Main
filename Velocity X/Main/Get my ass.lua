@@ -21,7 +21,9 @@ local LocalPlayer = Players.LocalPlayer
 
 getgenv().SelectedDog = nil
 getgenv().AutoPetDog = false
+getgenv().AutoCollect = false
 getgenv().TweenSpeed = 40
+
 local General  = Window:Add({ Title = "General",  Desc = "General features",   Banner = 101849161408766 })
 local DogSection = General:Section({
     Title = "Dogs",
@@ -134,3 +136,41 @@ task.spawn(function()
         end)
     end
 end)
+
+-- this made by Others ppl hass using ai i lazy :3
+DogSection:Toggle({
+    Title = "Auto Collect Star Event",
+    Value = false,
+    Callback = function(v)
+        getgenv().AutoCollect = v
+   
+        if v then
+            task.spawn(function()
+                while getgenv().AutoCollect do
+                    local Character = LocalPlayer.Character
+                    local HRP = Character and Character:FindFirstChild("HumanoidRootPart")
+
+                    if HRP then
+                        for _, star in ipairs(workspace:GetChildren()) do
+                            if star.Name == "FallingStar" and star:IsA("BasePart") then
+                                pcall(function()
+                                    firetouchinterest(HRP, star, 0)
+                                    firetouchinterest(HRP, star, 1)
+                                end)
+                            end
+                        end
+                    end
+
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end,
+})
+DogSection:Button({
+    Title = "Join alien? ",
+    Callback = function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	    ReplicatedStorage.RequestAlienTrigger:FireServer()
+    end,
+})
