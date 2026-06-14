@@ -8,8 +8,8 @@ Env.Config:Init({
 })
 -- Window
 local Window = Env:Window({
-	Title = "Nong Khaw",
-	Desc  = "- Project",
+	Title = "Velocity X | Cute Pets Animals UGC",
+	Desc  = "LOL",
 	Logo  = 128185233852701,
 })
 
