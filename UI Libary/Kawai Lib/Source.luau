@@ -380,7 +380,7 @@ function Env:Window(meta)
 	Title_1.Size = UDim2.new(1, -30, 0, 30)
 	Title_1.AutomaticSize = Enum.AutomaticSize.Y
 	Title_1.Font = Enum.Font.GothamBold
-	Title_1.Text = Title
+	Title_1.Text = tostring(Title or "")
 	Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 	Title_1.TextSize = 26
 	Title_1.TextWrapped = true
@@ -415,7 +415,7 @@ function Env:Window(meta)
 	Desc_1.Size = UDim2.new(1, -20, 0, 5)
 	Desc_1.AutomaticSize = Enum.AutomaticSize.Y
 	Desc_1.Font = Enum.Font.GothamBold
-	Desc_1.Text = Desc
+	Desc_1.Text = tostring(Desc or "")
 	Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
 	Desc_1.TextSize = 15
 	Desc_1.TextTransparency = 0.5
@@ -625,8 +625,8 @@ function Env:Window(meta)
 			d = "Out",
 			g = {BackgroundTransparency = 1}
 		}):Play()
-		Desc_1.Text = Desc
-		Title_1.Text = Title
+		Desc_1.Text = tostring(Desc or "")
+		Title_1.Text = tostring(Title or "")
 		delay(0.2, function()
 			tw({
 				v = Title_1,
@@ -704,8 +704,8 @@ function Env:Window(meta)
 		local UICorner_2 = Instance.new("UICorner")
 		local ClickTab = click(Addtab_1)
 
-		local Title = meta.Title
-		local Desc = meta.Desc
+		local Title = meta.Title or ""
+		local Desc = meta.Desc or ""
 		local Banner = meta.Banner
 
 		Addtab_1.Name = "Addtab"
@@ -848,8 +848,8 @@ function Env:Window(meta)
 				d = "Out",
 				g = {BackgroundTransparency = 1}
 			}):Play()
-			Desc_1.Text = Desc
-			Title_1.Text = Title
+			Desc_1.Text = tostring(Desc or "")
+			Title_1.Text = tostring(Title or "")
 			delay(0.2, function()
 				tw({
 					v = Title_1,
@@ -986,7 +986,7 @@ function Env:Window(meta)
 			Title_2.Size = UDim2.new(0.899999976, 0,0, 20)
 			Title_2.AutomaticSize = Enum.AutomaticSize.Y
 			Title_2.Font = Enum.Font.GothamBold
-			Title_2.Text = Title
+			Title_2.Text = tostring(Title or "")
 			Title_2.TextColor3 = Color3.fromRGB(255,255,255)
 			Title_2.TextSize = 15
 			Title_2.TextWrapped = true
@@ -1015,7 +1015,7 @@ function Env:Window(meta)
 
 			function Env._Class:Button(meta)
 
-				local Title = meta.Title
+				local Title = meta.Title or ""
 				local Desc = meta.Desc or nil
 				local Color = meta.Color or nil
 				local Callback = meta.Callback
@@ -1051,7 +1051,7 @@ function Env:Window(meta)
 					Title_1.Position = UDim2.new(0.5, 0,0.5, 0)
 					Title_1.Size = UDim2.new(1, -10, 1, 0)
 					Title_1.Font = Enum.Font.GothamBold
-					Title_1.Text = Title
+					Title_1.Text = tostring(Title or "")
 					Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Title_1.TextSize = 14
 					Title_1.TextScaled = true
@@ -1139,7 +1139,7 @@ function Env:Window(meta)
 					Title_1.Size = UDim2.new(0.68, 0, 0, 20)
 					Title_1.Font = Enum.Font.GothamBold
 					Title_1.RichText = true
-					Title_1.Text = Title
+					Title_1.Text = tostring(Title or "")
 					Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Title_1.TextSize = 14
 					Title_1.TextScaled = true
@@ -1186,7 +1186,7 @@ function Env:Window(meta)
 					Desc_1.Size = UDim2.new(0.775981307, 0,-0.0366666801, 20)
 					Desc_1.Font = Enum.Font.GothamBold
 					Desc_1.RichText = true
-					Desc_1.Text = Desc
+					Desc_1.Text = tostring(Desc or "")
 					Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Desc_1.TextSize = 10
 					Desc_1.TextTransparency = 0.5
@@ -1292,7 +1292,7 @@ function Env:Window(meta)
 
 			function Env._Class:Label(meta)
 
-				local Title = meta.Title
+				local Title = meta.Title or ""
 				local Side = meta.Side
 
 				local Label = Instance.new("TextLabel")
@@ -1306,7 +1306,7 @@ function Env:Window(meta)
 				Label.AutomaticSize = Enum.AutomaticSize.Y
 				Label.Font = Enum.Font.GothamBold
 				Label.RichText = true
-				Label.Text = Title
+				Label.Text = tostring(Title or "")
 				Label.TextColor3 = Color3.fromRGB(255,255,255)
 				Label.TextSize = 14
 				Label.TextWrapped = true
@@ -1476,8 +1476,8 @@ function Env:Window(meta)
 			function Env._Class:Icon(meta)
 
 				local Icon = meta.Icon
-				local Title = meta.Title
-				local Desc = meta.Desc
+				local Title = meta.Title or ""
+				local Desc = meta.Desc or ""
 
 				local ToggleImage = Instance.new("Frame")
 				local Title_1 = Instance.new("TextLabel")
@@ -1508,7 +1508,7 @@ function Env:Window(meta)
 				Title_1.Size = UDim2.new(0.775981307, 0,0.0700000003, 20)
 				Title_1.Font = Enum.Font.GothamBold
 				Title_1.RichText = true
-				Title_1.Text = Title
+				Title_1.Text = tostring(Title or "")
 				Title_1.TextColor3 = Color3.fromRGB(0, 170, 255)
 				Title_1.TextSize = 14
 				Title_1.TextXAlignment = Enum.TextXAlignment.Left
@@ -1554,7 +1554,7 @@ function Env:Window(meta)
 				Desc_1.Size = UDim2.new(0.775981307, 0,-0.0366666801, 20)
 				Desc_1.Font = Enum.Font.GothamBold
 				Desc_1.RichText = true
-				Desc_1.Text = Desc
+				Desc_1.Text = tostring(Desc or "")
 				Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Desc_1.TextSize = 10
 				Desc_1.TextTransparency = 0.5
@@ -1563,8 +1563,8 @@ function Env:Window(meta)
 			end
 
 			function Env._Class:Toggle(meta)
-				local Title = meta.Title
-				local Desc = meta.Desc
+				local Title = meta.Title or ""
+				local Desc = meta.Desc or ""
 				local Icon = meta.Icon or nil
 				local Value = meta.Value
 				local Callback = meta.Callback
@@ -1616,7 +1616,7 @@ function Env:Window(meta)
 					Title_1.Size = UDim2.new(0.775981307, 0,0.0700000003, 20)
 					Title_1.Font = Enum.Font.GothamBold
 					Title_1.RichText = true
-					Title_1.Text = Title
+					Title_1.Text = tostring(Title or "")
 					Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Title_1.TextSize = 14
 					Title_1.TextXAlignment = Enum.TextXAlignment.Left
@@ -1663,7 +1663,7 @@ function Env:Window(meta)
 					Desc_1.Size = UDim2.new(0.775981307, 0,-0.0366666801, 20)
 					Desc_1.Font = Enum.Font.GothamBold
 					Desc_1.RichText = true
-					Desc_1.Text = Desc
+					Desc_1.Text = tostring(Desc or "")
 					Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Desc_1.TextSize = 10
 					Desc_1.TextTransparency = 0.5
@@ -1835,7 +1835,7 @@ function Env:Window(meta)
 					Title_1.Size = UDim2.new(0.82, 0, 0, 20)
 					Title_1.Font = Enum.Font.GothamBold
 					Title_1.RichText = true
-					Title_1.Text = Title
+					Title_1.Text = tostring(Title or "")
 					Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Title_1.TextSize = 14
 					Title_1.TextScaled = true
@@ -1909,7 +1909,7 @@ function Env:Window(meta)
 					Desc_1.Size = UDim2.new(0.927587509, 0,-0.0366666801, 20)
 					Desc_1.Font = Enum.Font.GothamBold
 					Desc_1.RichText = true
-					Desc_1.Text = Desc
+					Desc_1.Text = tostring(Desc or "")
 					Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Desc_1.TextSize = 10
 					Desc_1.TextTransparency = 0.5
@@ -2006,8 +2006,8 @@ function Env:Window(meta)
 			end
 
 			function Env._Class:Paragarp(meta)
-				local Title = meta.Title
-				local Desc = meta.Desc
+				local Title = meta.Title or ""
+				local Desc = meta.Desc or ""
 
 				local Paragarp = Instance.new("Frame")
 				local UICorner_1 = Instance.new("UICorner")
@@ -2072,7 +2072,7 @@ function Env:Window(meta)
 				Title_1.Size = UDim2.new(0.927587509, 0,0, 15)
 				Title_1.Font = Enum.Font.GothamBold
 				Title_1.RichText = true
-				Title_1.Text = Title
+				Title_1.Text = tostring(Title or "")
 				Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Title_1.TextSize = 14
 				Title_1.TextScaled = true
@@ -2089,7 +2089,7 @@ function Env:Window(meta)
 				Desc_1.Size = UDim2.new(0.927587509, 0,0, 0)
 				Desc_1.Font = Enum.Font.GothamBold
 				Desc_1.RichText = true
-				Desc_1.Text = Desc
+				Desc_1.Text = tostring(Desc or "")
 				Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Desc_1.TextSize = 10
 				Desc_1.TextTransparency = 0.5
@@ -2254,8 +2254,8 @@ function Env:Window(meta)
 			end
 
 			function Env._Class:Slider(info)
-				local Title = info.Title
-				local Desc = info.Desc
+				local Title = info.Title or ""
+				local Desc = info.Desc or ""
 				local Min = info.Min or 0
 				local Max = info.Max or 100
 				local Rounding = info.Rounding or 0
@@ -2324,7 +2324,7 @@ function Env:Window(meta)
 				Title_1.Position = UDim2.new(0.0360824727, 0,0.0857142881, 0)
 				Title_1.Size = UDim2.new(0.72, 0,0, 20)
 				Title_1.Font = Enum.Font.GothamBold
-				Title_1.Text = Title
+				Title_1.Text = tostring(Title or "")
 				Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Title_1.TextSize = 14
 				Title_1.TextScaled = true
@@ -2466,7 +2466,7 @@ function Env:Window(meta)
 			end
 
 			function Env._Class:Dropdown(info)
-				local Title = info.Title
+				local Title = info.Title or ""
 				local List = info.List
 				local Value = info.Value
 				local Multi = info.Multi or false
@@ -2531,7 +2531,7 @@ function Env:Window(meta)
 				Title_1.Position = UDim2.new(0.0360824727, 0,0.0857142881, 0)
 				Title_1.Size = UDim2.new(0.75, 0,0, 20)
 				Title_1.Font = Enum.Font.GothamBold
-				Title_1.Text = Title
+				Title_1.Text = tostring(Title or "")
 				Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Title_1.TextSize = 14
 				Title_1.TextScaled = true
@@ -2639,7 +2639,7 @@ function Env:Window(meta)
 				Title_1.Position = UDim2.new(0.551162779, 0,0.409273595, 0)
 				Title_1.Size = UDim2.new(0.916279078, 0,0.442478806, 0)
 				Title_1.Font = Enum.Font.GothamBold
-				Title_1.Text = Title
+				Title_1.Text = tostring(Title or "")
 				Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Title_1.TextSize = 20
 				Title_1.TextXAlignment = Enum.TextXAlignment.Left
@@ -3081,7 +3081,7 @@ function Env:Window(meta)
 			end
 
 			function Env._Class:Keybind(info)
-				local Title = info.Title
+				local Title = info.Title or ""
 				local Key = info.Key or Enum.KeyCode.Q
 				local Value = info.Value or false
 				local Callback = info.Callback or function() end
@@ -3146,7 +3146,7 @@ function Env:Window(meta)
 				Title_1.Position = UDim2.new(0.46, 0,0.5, 0)
 				Title_1.Size = UDim2.new(0.80, 0,0, 20)
 				Title_1.Font = Enum.Font.GothamBold
-				Title_1.Text = Title
+				Title_1.Text = tostring(Title or "")
 				Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Title_1.TextSize = 14
 				Title_1.TextTransparency = 0.5
