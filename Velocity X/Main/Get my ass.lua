@@ -20,7 +20,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 getgenv().SelectedDog = nil
-getgenv().PromptCooldown = 0.5
+getgenv().PromptCooldown = 0
 getgenv().AutoPetDog = false
 getgenv().AutoCollect = false
 getgenv().TweenSpeed = 40
@@ -52,9 +52,9 @@ local DogDropdown = DogSection:Dropdown({
 })
 DogSection:Slider({
     Title = "Prompt Cooldown",
-    Min = 0.5,
+    Min = 0,
     Max = 2,
-    Value = 0.5,
+    Value = 0,
     Rounding = 1,
     CallBack = function(v)
         getgenv().PromptCooldown = v
