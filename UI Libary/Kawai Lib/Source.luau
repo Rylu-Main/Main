@@ -33,19 +33,21 @@ function Env.Config:Init(options)
 	_ConfigFolder = options.Folder or _ConfigFolder
 	_ConfigFile   = options.File   or _ConfigFile
 
-	if not isfolder(_ConfigFolder) then
-		makefolder(_ConfigFolder)
-	end
+	pcall(function()
+		if not isfolder(_ConfigFolder) then
+			makefolder(_ConfigFolder)
+		end
+	end)
 
 	if options.AutoLoad then
-		Env.Config:Load()
+		pcall(function() Env.Config:Load() end)
 	end
 
 	if options.AutoSave then
 		task.spawn(function()
 			while true do
 				task.wait(30)
-				Env.Config:Save()
+				pcall(function() Env.Config:Save() end)
 			end
 		end)
 	end
@@ -83,33 +85,51 @@ function Env.Config:OnFlagChanged(name: string, callback: (any) -> ()): () -> ()
 end
 
 function Env.Config:Save(fileName: string?)
-	if not isfolder(_ConfigFolder) then
-		makefolder(_ConfigFolder)
-	end
-	local path = _ConfigFolder .. "/" .. (fileName or _ConfigFile) .. ".json"
-	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, _Flags)
-	if ok then
+	local ok, err = pcall(function()
+		if not isfolder(_ConfigFolder) then
+			makefolder(_ConfigFolder)
+		end
+		local path = _ConfigFolder .. "/" .. (fileName or _ConfigFile) .. ".json"
+		local encoded = HttpService:JSONEncode(_Flags)
 		writefile(path, encoded)
+	end)
+	if ok then
+		Env.Notify({ Title = "Config Saved", Desc = (fileName or _ConfigFile) .. ".json", Type = "success", Duration = 2 })
+	else
+		Env.Notify({ Title = "Save Failed", Desc = tostring(err):sub(1, 60), Type = "error", Duration = 4 })
 	end
 end
 
 function Env.Config:Load(fileName: string?)
 	local path = _ConfigFolder .. "/" .. (fileName or _ConfigFile) .. ".json"
-	if not isfile(path) then return end
-	local ok, decoded = pcall(function()
+	if not isfile(path) then
+		Env.Notify({ Title = "Config Not Found", Desc = (fileName or _ConfigFile) .. ".json", Type = "warning", Duration = 3 })
+		return
+	end
+	local ok, result = pcall(function()
 		return HttpService:JSONDecode(readfile(path))
 	end)
-	if ok and type(decoded) == "table" then
-		for k, v in pairs(decoded) do
+	if ok and type(result) == "table" then
+		for k, v in pairs(result) do
 			_writeFlag(k, v)
 		end
+		Env.Notify({ Title = "Config Loaded", Desc = (fileName or _ConfigFile) .. ".json", Type = "success", Duration = 2 })
+	else
+		Env.Notify({ Title = "Load Failed", Desc = tostring(result):sub(1, 60), Type = "error", Duration = 4 })
 	end
 end
 
 function Env.Config:Delete(fileName: string?)
 	local path = _ConfigFolder .. "/" .. (fileName or _ConfigFile) .. ".json"
-	if isfile(path) then
-		delfile(path)
+	local ok, err = pcall(function()
+		if isfile(path) then
+			delfile(path)
+		end
+	end)
+	if ok then
+		Env.Notify({ Title = "Config Deleted", Desc = (fileName or _ConfigFile) .. ".json", Type = "info", Duration = 2 })
+	else
+		Env.Notify({ Title = "Delete Failed", Desc = tostring(err):sub(1, 60), Type = "error", Duration = 4 })
 	end
 end
 
@@ -137,6 +157,125 @@ KawaiFlags = setmetatable({}, {
 	__index    = function(_, k) return Env.Config:GetFlag(k) end,
 	__newindex = function(_, k, v) Env.Config:SetFlag(k, v) end,
 })
+
+Env.Notify = function(info)
+	local title   = tostring(info.Title or "Notification")
+	local desc    = tostring(info.Desc  or "")
+	local duration = tonumber(info.Duration) or 3
+	local ntype   = info.Type or "info"
+
+	local colors = {
+		info    = Color3.fromRGB(0, 170, 255),
+		success = Color3.fromRGB(0, 255, 127),
+		error   = Color3.fromRGB(255, 75, 75),
+		warning = Color3.fromRGB(255, 200, 0),
+	}
+	local accentColor = colors[ntype] or colors.info
+
+	local Screen = game:GetService("Players").LocalPlayer.PlayerGui
+	local hasDesc = desc ~= ""
+
+	local NotifHolder = Screen:FindFirstChild("KawaiNotifHolder")
+	if not NotifHolder then
+		NotifHolder = Instance.new("ScreenGui")
+		NotifHolder.Name = "KawaiNotifHolder"
+		NotifHolder.ResetOnSpawn = false
+		NotifHolder.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		NotifHolder.Parent = Screen
+
+		local Stack = Instance.new("Frame")
+		Stack.Name = "Stack"
+		Stack.AnchorPoint = Vector2.new(1, 1)
+		Stack.BackgroundTransparency = 1
+		Stack.BorderSizePixel = 0
+		Stack.Position = UDim2.new(1, -16, 1, -16)
+		Stack.Size = UDim2.new(0, 280, 1, -32)
+		Stack.Parent = NotifHolder
+
+		local UIList = Instance.new("UIListLayout")
+		UIList.HorizontalAlignment = Enum.HorizontalAlignment.Right
+		UIList.VerticalAlignment = Enum.VerticalAlignment.Bottom
+		UIList.SortOrder = Enum.SortOrder.LayoutOrder
+		UIList.Padding = UDim.new(0, 8)
+		UIList.Parent = Stack
+	end
+
+	local Stack = NotifHolder:FindFirstChild("Stack")
+
+	local cardH = hasDesc and 62 or 44
+
+	local Card = Instance.new("Frame")
+	Card.Name = "Notif"
+	Card.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+	Card.BackgroundTransparency = 0
+	Card.BorderSizePixel = 0
+	Card.Size = UDim2.new(1, 0, 0, cardH)
+	Card.ClipsDescendants = true
+	Card.Parent = Stack
+
+	local UICornerC = Instance.new("UICorner")
+	UICornerC.CornerRadius = UDim.new(0, 7)
+	UICornerC.Parent = Card
+
+	local Accent = Instance.new("Frame")
+	Accent.Name = "Accent"
+	Accent.BackgroundColor3 = accentColor
+	Accent.BorderSizePixel = 0
+	Accent.Size = UDim2.new(0, 3, 1, 0)
+	Accent.Position = UDim2.new(0, 0, 0, 0)
+	Accent.Parent = Card
+
+	local UICornerA = Instance.new("UICorner")
+	UICornerA.CornerRadius = UDim.new(0, 7)
+	UICornerA.Parent = Accent
+
+	local TitleL = Instance.new("TextLabel")
+	TitleL.BackgroundTransparency = 1
+	TitleL.BorderSizePixel = 0
+	TitleL.Position = UDim2.new(0, 14, 0, hasDesc and 9 or 0)
+	TitleL.Size = UDim2.new(1, -20, 0, 22)
+	TitleL.Font = Enum.Font.GothamBold
+	TitleL.Text = title
+	TitleL.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TitleL.TextSize = 13
+	TitleL.TextXAlignment = Enum.TextXAlignment.Left
+	TitleL.TextTruncate = Enum.TextTruncate.AtEnd
+	if not hasDesc then
+		TitleL.AnchorPoint = Vector2.new(0, 0.5)
+		TitleL.Position = UDim2.new(0, 14, 0.5, 0)
+	end
+	TitleL.Parent = Card
+
+	if hasDesc then
+		local DescL = Instance.new("TextLabel")
+		DescL.BackgroundTransparency = 1
+		DescL.BorderSizePixel = 0
+		DescL.Position = UDim2.new(0, 14, 0, 32)
+		DescL.Size = UDim2.new(1, -20, 0, 18)
+		DescL.Font = Enum.Font.Gotham
+		DescL.Text = desc
+		DescL.TextColor3 = Color3.fromRGB(200, 200, 200)
+		DescL.TextSize = 11
+		DescL.TextXAlignment = Enum.TextXAlignment.Left
+		DescL.TextTruncate = Enum.TextTruncate.AtEnd
+		DescL.Parent = Card
+	end
+
+	Card.Position = UDim2.new(1, 10, 0, 0)
+	TweenService:Create(Card, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0, 0, 0, 0)
+	}):Play()
+
+	task.delay(duration, function()
+		TweenService:Create(Card, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Position = UDim2.new(1, 10, 0, 0),
+			BackgroundTransparency = 1
+		}):Play()
+		task.wait(0.32)
+		Card:Destroy()
+	end)
+end
+
 
 GetIcon = function(i)
 	if type(i) == "string" and not i:find("rbxassetid://") then
@@ -1607,18 +1746,18 @@ function Env:Window(meta)
 
 					Title_1.Name = "Title"
 					Title_1.Parent = ToggleImage
-					Title_1.AnchorPoint = Vector2.new(0.5, 0.5)
+					Title_1.AnchorPoint = Vector2.new(0, 0.5)
 					Title_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
 					Title_1.BackgroundTransparency = 1
 					Title_1.BorderColor3 = Color3.fromRGB(0,0,0)
 					Title_1.BorderSizePixel = 0
-					Title_1.Position = UDim2.new(0.575679302, 0,0.368333131, 0)
-					Title_1.Size = UDim2.new(0.775981307, 0,0.0700000003, 20)
+					Title_1.Position = UDim2.new(0.16, 0, Desc ~= "" and 0.35 or 0.5, 0)
+					Title_1.Size = UDim2.new(0.70, 0, 0, Desc ~= "" and 16 or 20)
 					Title_1.Font = Enum.Font.GothamBold
 					Title_1.RichText = true
 					Title_1.Text = tostring(Title or "")
 					Title_1.TextColor3 = Color3.fromRGB(255,255,255)
-					Title_1.TextSize = 14
+					Title_1.TextSize = Desc ~= "" and 13 or 14
 					Title_1.TextXAlignment = Enum.TextXAlignment.Left
 					Title_1.TextTransparency = 0.5
 
@@ -1654,20 +1793,21 @@ function Env:Window(meta)
 
 					Desc_1.Name = "Desc"
 					Desc_1.Parent = ToggleImage
-					Desc_1.AnchorPoint = Vector2.new(0.5, 0.5)
+					Desc_1.AnchorPoint = Vector2.new(0, 0.5)
 					Desc_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
 					Desc_1.BackgroundTransparency = 1
 					Desc_1.BorderColor3 = Color3.fromRGB(0,0,0)
 					Desc_1.BorderSizePixel = 0
-					Desc_1.Position = UDim2.new(0.575679302, 0,0.664999783, 0)
-					Desc_1.Size = UDim2.new(0.775981307, 0,-0.0366666801, 20)
-					Desc_1.Font = Enum.Font.GothamBold
+					Desc_1.Position = UDim2.new(0.16, 0, 0.65, 0)
+					Desc_1.Size = UDim2.new(0.70, 0, 0, 14)
+					Desc_1.Font = Enum.Font.Gotham
 					Desc_1.RichText = true
 					Desc_1.Text = tostring(Desc or "")
 					Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
-					Desc_1.TextSize = 10
+					Desc_1.TextSize = 11
 					Desc_1.TextTransparency = 0.5
 					Desc_1.TextXAlignment = Enum.TextXAlignment.Left
+					Desc_1.Visible = Desc ~= ""
 
 					Check_1.Name = "Check"
 					Check_1.Parent = ToggleImage
@@ -1826,19 +1966,18 @@ function Env:Window(meta)
 
 					Title_1.Name = "Title"
 					Title_1.Parent = Togglez
-					Title_1.AnchorPoint = Vector2.new(0.5, 0.5)
+					Title_1.AnchorPoint = Vector2.new(0, 0.5)
 					Title_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
 					Title_1.BackgroundTransparency = 1
 					Title_1.BorderColor3 = Color3.fromRGB(0,0,0)
 					Title_1.BorderSizePixel = 0
-					Title_1.Position = UDim2.new(0.499876201, 0,0.368333131, 0)
-					Title_1.Size = UDim2.new(0.82, 0, 0, 20)
+					Title_1.Position = UDim2.new(0, 10, Desc ~= "" and 0.35 or 0.5, 0)
+					Title_1.Size = UDim2.new(0.82, -10, 0, Desc ~= "" and 16 or 20)
 					Title_1.Font = Enum.Font.GothamBold
 					Title_1.RichText = true
 					Title_1.Text = tostring(Title or "")
 					Title_1.TextColor3 = Color3.fromRGB(255,255,255)
-					Title_1.TextSize = 14
-					Title_1.TextScaled = true
+					Title_1.TextSize = Desc ~= "" and 13 or 14
 					Title_1.TextXAlignment = Enum.TextXAlignment.Left
 					Title_1.TextTransparency = 0.5
 
@@ -1900,20 +2039,21 @@ function Env:Window(meta)
 
 					Desc_1.Name = "Desc"
 					Desc_1.Parent = Togglez
-					Desc_1.AnchorPoint = Vector2.new(0.5, 0.5)
+					Desc_1.AnchorPoint = Vector2.new(0, 0.5)
 					Desc_1.BackgroundColor3 = Color3.fromRGB(255,255,255)
 					Desc_1.BackgroundTransparency = 1
 					Desc_1.BorderColor3 = Color3.fromRGB(0,0,0)
 					Desc_1.BorderSizePixel = 0
-					Desc_1.Position = UDim2.new(0.499876201, 0,0.664999783, 0)
-					Desc_1.Size = UDim2.new(0.927587509, 0,-0.0366666801, 20)
-					Desc_1.Font = Enum.Font.GothamBold
+					Desc_1.Position = UDim2.new(0, 10, 0.65, 0)
+					Desc_1.Size = UDim2.new(0.82, -10, 0, 14)
+					Desc_1.Font = Enum.Font.Gotham
 					Desc_1.RichText = true
 					Desc_1.Text = tostring(Desc or "")
 					Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
-					Desc_1.TextSize = 10
+					Desc_1.TextSize = 11
 					Desc_1.TextTransparency = 0.5
 					Desc_1.TextXAlignment = Enum.TextXAlignment.Left
+					Desc_1.Visible = Desc ~= ""
 
 					local function Toggle(Value)
 						if not Value then
