@@ -3,6 +3,141 @@ local Env: table = {}
 local TweenService: TweenService = game:GetService("TweenService")
 local UserInputService: UserInputService = game:GetService("UserInputService")
 
+local HttpService = game:GetService("HttpService")
+
+Env.Config = {}
+
+local _Flags: {[string]: any} = {}
+
+local _FlagListeners: {[string]: {(...any) -> ()}} = {}
+
+local _ConfigFolder: string = "KawaiConfig"
+
+local _ConfigFile: string = "default"
+
+local function _getSavePath(): string
+	return _ConfigFolder .. "/" .. _ConfigFile .. ".json"
+end
+
+local function _writeFlag(name: string, value: any)
+	_Flags[name] = value
+	if _FlagListeners[name] then
+		for _, cb in ipairs(_FlagListeners[name]) do
+			pcall(cb, value)
+		end
+	end
+end
+
+function Env.Config:Init(options)
+	options = options or {}
+	_ConfigFolder = options.Folder or _ConfigFolder
+	_ConfigFile   = options.File   or _ConfigFile
+
+	if not isfolder(_ConfigFolder) then
+		makefolder(_ConfigFolder)
+	end
+
+	if options.AutoLoad then
+		Env.Config:Load()
+	end
+
+	if options.AutoSave then
+		task.spawn(function()
+			while true do
+				task.wait(30)
+				Env.Config:Save()
+			end
+		end)
+	end
+end
+
+function Env.Config:RegisterFlag(name: string, defaultValue: any): any
+	if _Flags[name] == nil then
+		_Flags[name] = defaultValue
+	end
+	return _Flags[name]
+end
+
+function Env.Config:SetFlag(name: string, value: any)
+	_writeFlag(name, value)
+end
+
+function Env.Config:GetFlag(name: string): any
+	return _Flags[name]
+end
+
+function Env.Config:OnFlagChanged(name: string, callback: (any) -> ()): () -> ()
+	if not _FlagListeners[name] then
+		_FlagListeners[name] = {}
+	end
+	table.insert(_FlagListeners[name], callback)
+	return function()
+		local list = _FlagListeners[name]
+		for i, cb in ipairs(list) do
+			if cb == callback then
+				table.remove(list, i)
+				break
+			end
+		end
+	end
+end
+
+function Env.Config:Save(fileName: string?)
+	if not isfolder(_ConfigFolder) then
+		makefolder(_ConfigFolder)
+	end
+	local path = _ConfigFolder .. "/" .. (fileName or _ConfigFile) .. ".json"
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, _Flags)
+	if ok then
+		writefile(path, encoded)
+	end
+end
+
+function Env.Config:Load(fileName: string?)
+	local path = _ConfigFolder .. "/" .. (fileName or _ConfigFile) .. ".json"
+	if not isfile(path) then return end
+	local ok, decoded = pcall(function()
+		return HttpService:JSONDecode(readfile(path))
+	end)
+	if ok and type(decoded) == "table" then
+		for k, v in pairs(decoded) do
+			_writeFlag(k, v)
+		end
+	end
+end
+
+function Env.Config:Delete(fileName: string?)
+	local path = _ConfigFolder .. "/" .. (fileName or _ConfigFile) .. ".json"
+	if isfile(path) then
+		delfile(path)
+	end
+end
+
+function Env.Config:ListFiles(): {string}
+	local result = {}
+	if isfolder(_ConfigFolder) then
+		for _, name in ipairs(listfiles(_ConfigFolder)) do
+
+			local short = name:gsub(_ConfigFolder .. "/", ""):gsub("%.json$", "")
+			table.insert(result, short)
+		end
+	end
+	return result
+end
+
+function Env.Config:GetAllFlags(): {[string]: any}
+	local copy = {}
+	for k, v in pairs(_Flags) do
+		copy[k] = v
+	end
+	return copy
+end
+
+KawaiFlags = setmetatable({}, {
+	__index    = function(_, k) return Env.Config:GetFlag(k) end,
+	__newindex = function(_, k, v) Env.Config:SetFlag(k, v) end,
+})
+
 GetIcon = function(i)
 	if type(i) == "string" and not i:find("rbxassetid://") then
 		return "rbxassetid://" .. i
@@ -242,7 +377,8 @@ function Env:Window(meta)
 	Title_1.BorderColor3 = Color3.fromRGB(0,0,0)
 	Title_1.BorderSizePixel = 0
 	Title_1.Position = UDim2.new(0, 0,0.116666667, 0)
-	Title_1.Size = UDim2.new(0, 462,0, 20)
+	Title_1.Size = UDim2.new(1, -30, 0, 30)
+	Title_1.AutomaticSize = Enum.AutomaticSize.Y
 	Title_1.Font = Enum.Font.GothamBold
 	Title_1.Text = Title
 	Title_1.TextColor3 = Color3.fromRGB(255,255,255)
@@ -276,19 +412,20 @@ function Env:Window(meta)
 	Desc_1.BorderColor3 = Color3.fromRGB(0,0,0)
 	Desc_1.BorderSizePixel = 0
 	Desc_1.Position = UDim2.new(0.0179999992, 0,0, 0)
-	Desc_1.Size = UDim2.new(0, 191,0, 5)
+	Desc_1.Size = UDim2.new(1, -20, 0, 5)
+	Desc_1.AutomaticSize = Enum.AutomaticSize.Y
 	Desc_1.Font = Enum.Font.GothamBold
 	Desc_1.Text = Desc
 	Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
 	Desc_1.TextSize = 15
 	Desc_1.TextTransparency = 0.5
+	Desc_1.TextWrapped = true
 	Desc_1.TextXAlignment = Enum.TextXAlignment.Left
 
 	local CloseUI = Instance.new("TextButton")
 	local UICorner_1z = Instance.new("UICorner")
 	local Icon_1 = Instance.new("Frame")
 	local ImageLabel = Instance.new("ImageLabel")
-
 
 	CloseUI.Name = "CloseUI"
 	CloseUI.Parent = Khaw
@@ -334,7 +471,7 @@ function Env:Window(meta)
 				d = "Out",
 				g = {Size = UDim2.new(0, 35, 0, 35)}
 			}):Play()
-			task.wait(0.016) 
+			task.wait(0.016)
 			tw({
 				v = ImageLabel,
 				t = 0.2,
@@ -345,7 +482,6 @@ function Env:Window(meta)
 		end)
 		Background_1.Visible = not Background_1.Visible
 	end
-
 
 	CloseUI.MouseButton1Click:Connect(function()
 		closeopenui()
@@ -848,10 +984,12 @@ function Env:Window(meta)
 			Title_2.BorderSizePixel = 0
 			Title_2.LayoutOrder = -3
 			Title_2.Size = UDim2.new(0.899999976, 0,0, 20)
+			Title_2.AutomaticSize = Enum.AutomaticSize.Y
 			Title_2.Font = Enum.Font.GothamBold
 			Title_2.Text = Title
 			Title_2.TextColor3 = Color3.fromRGB(255,255,255)
 			Title_2.TextSize = 15
+			Title_2.TextWrapped = true
 
 			UIPadding_2.Parent = Section_1
 			UIPadding_2.PaddingTop = UDim.new(0,7)
@@ -911,11 +1049,12 @@ function Env:Window(meta)
 					Title_1.BorderColor3 = Color3.fromRGB(0,0,0)
 					Title_1.BorderSizePixel = 0
 					Title_1.Position = UDim2.new(0.5, 0,0.5, 0)
-					Title_1.Size = UDim2.new(1, 0,1, 0)
+					Title_1.Size = UDim2.new(1, -10, 1, 0)
 					Title_1.Font = Enum.Font.GothamBold
 					Title_1.Text = Title
 					Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Title_1.TextSize = 14
+					Title_1.TextScaled = true
 
 					UICorner_1.Parent = Button
 					UICorner_1.CornerRadius = UDim.new(0,5)
@@ -996,13 +1135,14 @@ function Env:Window(meta)
 					Title_1.BackgroundTransparency = 1
 					Title_1.BorderColor3 = Color3.fromRGB(0,0,0)
 					Title_1.BorderSizePixel = 0
-					Title_1.Position = UDim2.new(0.575679302, 0,0.368333131, 0)
-					Title_1.Size = UDim2.new(0.775981307, 0,0.0700000003, 20)
+					Title_1.Position = UDim2.new(0.575679302, 0,0.35, 0)
+					Title_1.Size = UDim2.new(0.68, 0, 0, 20)
 					Title_1.Font = Enum.Font.GothamBold
 					Title_1.RichText = true
 					Title_1.Text = Title
 					Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Title_1.TextSize = 14
+					Title_1.TextScaled = true
 					Title_1.TextXAlignment = Enum.TextXAlignment.Left
 
 					UICorner_1.Parent = ButtonImage
@@ -1163,11 +1303,13 @@ function Env:Window(meta)
 				Label.BorderColor3 = Color3.fromRGB(0,0,0)
 				Label.BorderSizePixel = 0
 				Label.Size = UDim2.new(0.899999976, 0,0, 20)
+				Label.AutomaticSize = Enum.AutomaticSize.Y
 				Label.Font = Enum.Font.GothamBold
 				Label.RichText = true
 				Label.Text = Title
 				Label.TextColor3 = Color3.fromRGB(255,255,255)
 				Label.TextSize = 14
+				Label.TextWrapped = true
 				Label.TextXAlignment = GetAlig(Side)
 
 				local Index = {}
@@ -1277,11 +1419,12 @@ function Env:Window(meta)
 				Desc_1.BorderColor3 = Color3.fromRGB(0,0,0)
 				Desc_1.BorderSizePixel = 0
 				Desc_1.Position = UDim2.new(0.611293197, 0,0.675000012, 0)
-				Desc_1.Size = UDim2.new(0.704753578, 0,-0.0166666675, 20)
+				Desc_1.Size = UDim2.new(0.64, 0, 0, 18)
 				Desc_1.Font = Enum.Font.GothamBold
 				Desc_1.Text = Link
 				Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Desc_1.TextSize = 13
+				Desc_1.TextScaled = true
 				Desc_1.TextTransparency = 0.5
 				Desc_1.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -1329,13 +1472,13 @@ function Env:Window(meta)
 					end)
 				end)
 			end
-			
+
 			function Env._Class:Icon(meta)
-				
+
 				local Icon = meta.Icon
 				local Title = meta.Title
 				local Desc = meta.Desc
-				
+
 				local ToggleImage = Instance.new("Frame")
 				local Title_1 = Instance.new("TextLabel")
 				local UICorner_1 = Instance.new("UICorner")
@@ -1416,7 +1559,7 @@ function Env:Window(meta)
 				Desc_1.TextSize = 10
 				Desc_1.TextTransparency = 0.5
 				Desc_1.TextXAlignment = Enum.TextXAlignment.Left
-				
+
 			end
 
 			function Env._Class:Toggle(meta)
@@ -1425,6 +1568,16 @@ function Env:Window(meta)
 				local Icon = meta.Icon or nil
 				local Value = meta.Value
 				local Callback = meta.Callback
+				local Flag = meta.Flag or nil
+
+				if Flag then
+					Value = Env.Config:RegisterFlag(Flag, Value)
+					local _origCallback = Callback
+					Callback = function(v)
+						Env.Config:SetFlag(Flag, v)
+						if _origCallback then _origCallback(v) end
+					end
+				end
 
 				if Icon then
 					local ToggleImage = Instance.new("Frame")
@@ -1555,7 +1708,7 @@ function Env:Window(meta)
 					UICorner_3.Parent = Check_1
 
 					local function Toggle(Value)
-						if not Value then 
+						if not Value then
 							Callback(Value)
 							tw({
 								v = ColorFrame_1,
@@ -1578,7 +1731,7 @@ function Env:Window(meta)
 								d = "Out",
 								g = {TextTransparency = 0.5}
 							}):Play()
-						elseif Value then 
+						elseif Value then
 							Callback(Value)
 							tw({
 								v = ColorFrame_1,
@@ -1679,12 +1832,13 @@ function Env:Window(meta)
 					Title_1.BorderColor3 = Color3.fromRGB(0,0,0)
 					Title_1.BorderSizePixel = 0
 					Title_1.Position = UDim2.new(0.499876201, 0,0.368333131, 0)
-					Title_1.Size = UDim2.new(0.927587509, 0,0.0700000003, 20)
+					Title_1.Size = UDim2.new(0.82, 0, 0, 20)
 					Title_1.Font = Enum.Font.GothamBold
 					Title_1.RichText = true
 					Title_1.Text = Title
 					Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 					Title_1.TextSize = 14
+					Title_1.TextScaled = true
 					Title_1.TextXAlignment = Enum.TextXAlignment.Left
 					Title_1.TextTransparency = 0.5
 
@@ -1761,9 +1915,8 @@ function Env:Window(meta)
 					Desc_1.TextTransparency = 0.5
 					Desc_1.TextXAlignment = Enum.TextXAlignment.Left
 
-
 					local function Toggle(Value)
-						if not Value then 
+						if not Value then
 							Callback(Value)
 							tw({
 								v = ColorFrame_1,
@@ -1786,7 +1939,7 @@ function Env:Window(meta)
 								d = "Out",
 								g = {TextTransparency = 0.5}
 							}):Play()
-						elseif Value then 
+						elseif Value then
 							Callback(Value)
 							tw({
 								v = Title_1,
@@ -1849,7 +2002,7 @@ function Env:Window(meta)
 					end
 
 					return Index
-				end 
+				end
 			end
 
 			function Env._Class:Paragarp(meta)
@@ -1922,6 +2075,7 @@ function Env:Window(meta)
 				Title_1.Text = Title
 				Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Title_1.TextSize = 14
+				Title_1.TextScaled = true
 				Title_1.TextXAlignment = Enum.TextXAlignment.Left
 
 				Desc_1.Name = "Desc"
@@ -1950,20 +2104,20 @@ function Env:Window(meta)
 				local descHeight = Desc_1.TextBounds.Y + 5
 				Desc_1.Size = UDim2.new(0.927587509, 0, 0, descHeight)
 				Paragarp.Size = UDim2.new(0.97, 0, 0, descHeight + 25)
-				
+
 				local Index = {}
-				
+
 				function Index:Title(v)
 					Title_1.Text = v
 				end
-				
+
 				function Index:Desc(v)
 					Desc_1.Text = v
 					local descHeight = Desc_1.TextBounds.Y + 5
 					Desc_1.Size = UDim2.new(0.927587509, 0, 0, descHeight)
 					Paragarp.Size = UDim2.new(0.97, 0, 0, descHeight + 35)
 				end
-				
+
 				function Index:Visible(v)
 					Paragarp.Visible = v
 				end
@@ -1972,12 +2126,22 @@ function Env:Window(meta)
 			end
 
 			function Env._Class:Textbox(meta)
-				
+
 				local Value = meta.Value or "Example"
 				local PlaceHolder = meta.PlaceHolder or "Place"
 				local ClearOnFocus = meta.ClearOnFocus or false
 				local Callback = meta.Callback
-				
+				local Flag = meta.Flag or nil
+
+				if Flag then
+					Value = tostring(Env.Config:RegisterFlag(Flag, Value))
+					local _origCallback = Callback
+					Callback = function(v)
+						Env.Config:SetFlag(Flag, v)
+						if _origCallback then _origCallback(v) end
+					end
+				end
+
 				local Textbox = Instance.new("Frame")
 				local UICorner_1 = Instance.new("UICorner")
 				local ImageLabel_1 = Instance.new("ImageLabel")
@@ -2064,7 +2228,7 @@ function Env:Window(meta)
 						g = {Transparency = 0.5}
 					}):Play()
 				end)
-				
+
 				Edit_1.Focused:Connect(function()
 					tw({
 						v = UIStroke_1,
@@ -2074,7 +2238,7 @@ function Env:Window(meta)
 						g = {Transparency = 0}
 					}):Play()
 				end)
-				
+
 				local Index = {}
 
 				function Index:Value(v)
@@ -2097,7 +2261,17 @@ function Env:Window(meta)
 				local Rounding = info.Rounding or 0
 				local Value = info.Value or Min
 				local Callback = info.CallBack or function() end
-			
+				local Flag = info.Flag or nil
+
+				if Flag then
+					Value = Env.Config:RegisterFlag(Flag, Value)
+					local _origCallback = Callback
+					Callback = function(v)
+						Env.Config:SetFlag(Flag, v)
+						if _origCallback then _origCallback(v) end
+					end
+				end
+
 				local Slider = Instance.new("Frame")
 				local UICorner_1 = Instance.new("UICorner")
 				local ImageLabel_1 = Instance.new("ImageLabel")
@@ -2148,11 +2322,12 @@ function Env:Window(meta)
 				Title_1.BorderSizePixel = 0
 				Title_1.LayoutOrder = -3
 				Title_1.Position = UDim2.new(0.0360824727, 0,0.0857142881, 0)
-				Title_1.Size = UDim2.new(0.927834988, 0,0, 20)
+				Title_1.Size = UDim2.new(0.72, 0,0, 20)
 				Title_1.Font = Enum.Font.GothamBold
 				Title_1.Text = Title
 				Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Title_1.TextSize = 14
+				Title_1.TextScaled = true
 				Title_1.TextXAlignment = Enum.TextXAlignment.Left
 
 				Bar_1.Name = "Bar"
@@ -2201,7 +2376,7 @@ function Env:Window(meta)
 
 				UICorner_4.Parent = ValueBox_1
 				UICorner_4.CornerRadius = UDim.new(1,0)
-				
+
 				local function roundToDecimal(value, decimals)
 					local factor = 10 ^ decimals
 					return math.floor(value * factor + 0.5) / factor
@@ -2296,7 +2471,17 @@ function Env:Window(meta)
 				local Value = info.Value
 				local Multi = info.Multi or false
 				local Callback = info.Callback
-				
+				local Flag = info.Flag or nil
+
+				if Flag then
+					Value = Env.Config:RegisterFlag(Flag, Value)
+					local _origCallback = Callback
+					Callback = function(v)
+						Env.Config:SetFlag(Flag, v)
+						if _origCallback then _origCallback(v) end
+					end
+				end
+
 				local Dropdownz = Instance.new("Frame")
 				local UICorner_1 = Instance.new("UICorner")
 				local ImageLabel_1 = Instance.new("ImageLabel")
@@ -2344,11 +2529,12 @@ function Env:Window(meta)
 				Title_1.BorderSizePixel = 0
 				Title_1.LayoutOrder = -3
 				Title_1.Position = UDim2.new(0.0360824727, 0,0.0857142881, 0)
-				Title_1.Size = UDim2.new(0.927834988, 0,0, 20)
+				Title_1.Size = UDim2.new(0.75, 0,0, 20)
 				Title_1.Font = Enum.Font.GothamBold
 				Title_1.Text = Title
 				Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Title_1.TextSize = 14
+				Title_1.TextScaled = true
 				Title_1.TextXAlignment = Enum.TextXAlignment.Left
 
 				Desc_1.Name = "Desc"
@@ -2389,7 +2575,6 @@ function Env:Window(meta)
 
 				UIGradient_3.Parent = icon_1
 				UIGradient_3.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 127)), ColorSequenceKeypoint.new(0.482699, Color3.fromRGB(0, 170, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 85, 255))}
-				
 
 				local Dropdown = Instance.new("Frame")
 				local UICorner_1 = Instance.new("UICorner")
@@ -2544,7 +2729,7 @@ function Env:Window(meta)
 				UIListLayout_2.Parent = ScrollingFrame_1
 				UIListLayout_2.Padding = UDim.new(0,5)
 				UIListLayout_2.SortOrder = Enum.SortOrder.LayoutOrder
-				
+
 				local isOpen = false
 				UserInputService.InputBegan:Connect(function(A)
 					if A.UserInputType == Enum.UserInputType.MouseButton1 or A.UserInputType == Enum.UserInputType.Touch then
@@ -2561,7 +2746,7 @@ function Env:Window(meta)
 						end
 					end
 				end)
-				
+
 				ClickDropdown.MouseButton1Click:Connect(function()
 					isOpen = not isOpen
 					if isOpen then
@@ -2601,7 +2786,7 @@ function Env:Window(meta)
 					end)
 					EffectClick2(ClickDropdown, Dropdown)
 				end)
-				
+
 				Search_1.Changed:Connect(function()
 					local SearchT = string.lower(Search_1.Text)
 					for i, v in pairs(ScrollingFrame_1:GetChildren()) do
@@ -2615,8 +2800,7 @@ function Env:Window(meta)
 						end
 					end
 				end)
-				
-				
+
 				local itemslist = {}
 				local selectedItem
 
@@ -2656,9 +2840,9 @@ function Env:Window(meta)
 						Desc_1.Text = ""
 					end
 				end
-				
+
 				local selectedValues = {}
-				
+
 				function itemslist:AddList(text)
 					local Items = Instance.new("Frame")
 					local UIGradient_1 = Instance.new("UIGradient")
@@ -2722,7 +2906,7 @@ function Env:Window(meta)
 
 					UICorner_1.Parent = Line_1
 					UICorner_1.CornerRadius = UDim.new(1,0)
-					
+
 					ClickList.MouseButton1Click:Connect(function()
 						if Multi then
 							if selectedValues[text] then
@@ -2884,7 +3068,7 @@ function Env:Window(meta)
 						end
 					end)
 				end
-				
+
 				for i,v in ipairs(List) do
 					itemslist:AddList(v, i)
 				end
@@ -2901,7 +3085,17 @@ function Env:Window(meta)
 				local Key = info.Key or Enum.KeyCode.Q
 				local Value = info.Value or false
 				local Callback = info.Callback or function() end
-				
+				local Flag = info.Flag or nil
+
+				if Flag then
+					Value = Env.Config:RegisterFlag(Flag, Value)
+					local _origCallback = Callback
+					Callback = function(k, v)
+						Env.Config:SetFlag(Flag, v)
+						if _origCallback then _origCallback(k, v) end
+					end
+				end
+
 				local Keybind = Instance.new("Frame")
 				local UICorner_1 = Instance.new("UICorner")
 				local ImageLabel_1 = Instance.new("ImageLabel")
@@ -2949,13 +3143,14 @@ function Env:Window(meta)
 				Title_1.BorderColor3 = Color3.fromRGB(0,0,0)
 				Title_1.BorderSizePixel = 0
 				Title_1.LayoutOrder = -3
-				Title_1.Position = UDim2.new(0.5, 0,0.5, 0)
-				Title_1.Size = UDim2.new(0.927834988, 0,0, 20)
+				Title_1.Position = UDim2.new(0.46, 0,0.5, 0)
+				Title_1.Size = UDim2.new(0.80, 0,0, 20)
 				Title_1.Font = Enum.Font.GothamBold
 				Title_1.Text = Title
 				Title_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Title_1.TextSize = 14
 				Title_1.TextTransparency = 0.5
+				Title_1.TextScaled = true
 				Title_1.TextXAlignment = Enum.TextXAlignment.Left
 
 				Bin_1.Name = "Bin"
@@ -2986,7 +3181,7 @@ function Env:Window(meta)
 				TextLabel_1.Text = tostring(Value)
 				TextLabel_1.TextColor3 = Color3.fromRGB(255,255,255)
 				TextLabel_1.TextSize = 13
-				
+
 				local function adjustBoxBindSize()
 					local textSize = game:GetService("TextService"):GetTextSize(TextLabel_1.Text, TextLabel_1.TextSize, TextLabel_1.Font, Vector2.new(1000, 1000))
 					Bin_1.Size = UDim2.new(0, textSize.X + 15, 0, 25)
