@@ -157,6 +157,24 @@ KawaiFlags = setmetatable({}, {
 	__index    = function(_, k) return Env.Config:GetFlag(k) end,
 	__newindex = function(_, k, v) Env.Config:SetFlag(k, v) end,
 })
+
+local function asColor3(v)
+	if typeof(v) == "Color3" then
+		return v
+	end
+
+	if type(v) == "table" then
+		if v.R and v.G and v.B then
+			return Color3.fromRGB(v.R, v.G, v.B)
+		end
+		if v[1] and v[2] and v[3] then
+			return Color3.fromRGB(v[1], v[2], v[3])
+		end
+	end
+
+	return nil
+end
+
 Env.Notify = function(info)
 	local ok, err = pcall(function()
 		local title = tostring(info.Title or "Notification")
@@ -181,7 +199,8 @@ Env.Notify = function(info)
 		}
 
 		local grad = typeGrad[ntype] or typeGrad.info
-		local colA, colB = grad[1], grad[2]
+		local colA = asColor3(info.Color) or grad[1]
+		local colB = asColor3(info.Color2) or grad[2]
 
 		local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 		local notifHolder = playerGui:FindFirstChild("KawaiNotifHolder")
@@ -256,19 +275,6 @@ Env.Notify = function(info)
 		cornerCard.CornerRadius = UDim.new(0, 10)
 		cornerCard.Parent = card
 
-		local noise = Instance.new("ImageLabel")
-		noise.BackgroundTransparency = 1
-		noise.BorderSizePixel = 0
-		noise.AnchorPoint = Vector2.new(0.5, 0.5)
-		noise.Position = UDim2.new(0.5, 0, 0.5, 0)
-		noise.Size = UDim2.new(1, 0, 1, 0)
-		noise.Image = "rbxassetid://132687652275989"
-		noise.ImageColor3 = colA
-		noise.ImageTransparency = 0.9
-		noise.ScaleType = Enum.ScaleType.Crop
-		noise.ZIndex = 1
-		noise.Parent = card
-
 		local stroke = Instance.new("UIStroke")
 		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		stroke.Color = colA
@@ -296,13 +302,13 @@ Env.Notify = function(info)
 		accentGrad.Rotation = 90
 		accentGrad.Parent = accentBar
 
-		local iconX, iconSz = 18, 22
+		local iconX, iconSz = tonumber(info.IconX) or 18, tonumber(info.IconSize) or 22
 		local iconBg = Instance.new("Frame")
 		iconBg.BackgroundColor3 = colA
 		iconBg.BackgroundTransparency = 0.7
 		iconBg.BorderSizePixel = 0
 		iconBg.AnchorPoint = Vector2.new(0, 0.5)
-		iconBg.Position = hasDesc and UDim2.new(0, iconX, 0, 11) or UDim2.new(0, iconX, 0.5, -(iconSz // 2 + 4))
+		iconBg.Position = info.IconPos or (hasDesc and UDim2.new(0, iconX, 0, 11) or UDim2.new(0, iconX, 0.5, -(iconSz // 2 + 4)))
 		iconBg.Size = UDim2.new(0, iconSz + 8, 0, iconSz + 8)
 		iconBg.ZIndex = 5
 		iconBg.Parent = card
@@ -323,7 +329,7 @@ Env.Notify = function(info)
 		}
 		iconBgGrad.Parent = iconBg
 
-		local iconAsset = icon and GetIcon(icon) or (typeIcon[ntype] or typeIcon.info)
+		local iconAsset = (icon ~= nil and GetIcon(icon)) or (typeIcon[ntype] or typeIcon.info)
 
 		local iconImg = Instance.new("ImageLabel")
 		iconImg.BackgroundTransparency = 1
@@ -342,11 +348,11 @@ Env.Notify = function(info)
 		titleL.BackgroundTransparency = 1
 		titleL.BorderSizePixel = 0
 		titleL.AnchorPoint = Vector2.new(0, 0)
-		titleL.Position = hasDesc and UDim2.new(0, textX, 0, 10) or UDim2.new(0, textX, 0.5, -8)
+		titleL.Position = info.TitlePos or (hasDesc and UDim2.new(0, textX, 0, 10) or UDim2.new(0, textX, 0.5, -8))
 		titleL.Size = UDim2.new(1, -(textX + 10), 0, 16)
 		titleL.Font = Enum.Font.GothamBold
 		titleL.Text = title
-		titleL.TextColor3 = Color3.fromRGB(255, 255, 255)
+		titleL.TextColor3 = asColor3(info.TitleColor) or Color3.fromRGB(255, 255, 255)
 		titleL.TextSize = 13
 		titleL.TextXAlignment = Enum.TextXAlignment.Left
 		titleL.TextTruncate = Enum.TextTruncate.AtEnd
@@ -358,18 +364,18 @@ Env.Notify = function(info)
 			descL.BackgroundTransparency = 1
 			descL.BorderSizePixel = 0
 			descL.AnchorPoint = Vector2.new(0, 0.5)
-			descL.Position = UDim2.new(0, textX, 0, 34)
+			descL.Position = info.DescPos or UDim2.new(0, textX, 0, 34)
 			descL.Size = UDim2.new(1, -(textX + 10), 0, 26)
 			descL.Font = Enum.Font.Gotham
 			descL.Text = desc
-			descL.TextColor3 = Color3.fromRGB(160, 160, 160)
+			descL.TextColor3 = asColor3(info.DescColor) or Color3.fromRGB(160, 160, 160)
 			descL.TextSize = 11
 			descL.TextXAlignment = Enum.TextXAlignment.Left
 			descL.TextWrapped = true
 			descL.ZIndex = 5
 			descL.Parent = card
 		end
-
+		
 		local progBg = Instance.new("Frame")
 		progBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		progBg.BackgroundTransparency = 0.9
