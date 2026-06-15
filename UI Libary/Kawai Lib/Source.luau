@@ -2,17 +2,13 @@ local Env: table = {}
 
 local TweenService: TweenService = game:GetService("TweenService")
 local UserInputService: UserInputService = game:GetService("UserInputService")
-
 local HttpService = game:GetService("HttpService")
 
 Env.Config = {}
 
 local _Flags: {[string]: any} = {}
-
 local _FlagListeners: {[string]: {(...any) -> ()}} = {}
-
 local _ConfigFolder: string = "KawaiConfig"
-
 local _ConfigFile: string = "default"
 
 local function _getSavePath(): string
@@ -137,7 +133,6 @@ function Env.Config:ListFiles(): {string}
 	local result = {}
 	if isfolder(_ConfigFolder) then
 		for _, name in ipairs(listfiles(_ConfigFolder)) do
-
 			local short = name:gsub(_ConfigFolder .. "/", ""):gsub("%.json$", "")
 			table.insert(result, short)
 		end
@@ -158,8 +153,6 @@ KawaiFlags = setmetatable({}, {
 	__newindex = function(_, k, v) Env.Config:SetFlag(k, v) end,
 })
 
--- ── UPDATED NOTIFICATION SYSTEM ───────────────────────────
--- Added: custom Color, fixed icon centering, optional DurationSlider
 Env.Notify = function(info)
 	local ok, err = pcall(function()
 
@@ -169,10 +162,9 @@ Env.Notify = function(info)
 	local ntype    = info.Type              or "info"
 	local icon     = info.Icon
 	local buttons  = info.Buttons
-	local customColor     = info.Color            -- optional {Color3, Color3}
-	local durationSlider = info.DurationSlider    -- if true, shows interactive slider
+	local customColor     = info.Color
+	local durationSlider = info.DurationSlider
 
-	-- Gradient logic
 	local typeGrad = {
 		info    = {Color3.fromRGB(0, 170, 255),  Color3.fromRGB(85, 85, 255)},
 		success = {Color3.fromRGB(0, 220, 110),  Color3.fromRGB(0, 170, 255)},
@@ -192,12 +184,11 @@ Env.Notify = function(info)
 	local Screen     = game:GetService("Players").LocalPlayer.PlayerGui
 	local hasDesc    = desc ~= ""
 	local hasButtons = type(buttons) == "table" and #buttons > 0
-	local hasSlider  = durationSlider and not hasButtons  -- only one interactive element for simplicity
+	local hasSlider  = durationSlider and not hasButtons
 
 	local baseH  = hasDesc and 72 or 50
 	local totalH = baseH + (hasButtons and 46 or 0) + (hasSlider and 28 or 0)
 
-	-- Ensure container exists
 	local NotifHolder = Screen:FindFirstChild("KawaiNotifHolder")
 	if not NotifHolder then
 		NotifHolder                  = Instance.new("ScreenGui")
@@ -226,7 +217,6 @@ Env.Notify = function(info)
 
 	local Stack = NotifHolder:FindFirstChild("Stack")
 
-	-- Wrapper
 	local Wrapper                    = Instance.new("Frame")
 	Wrapper.Name                     = "KawaiNotif"
 	Wrapper.BackgroundTransparency   = 1
@@ -234,7 +224,6 @@ Env.Notify = function(info)
 	Wrapper.Size                     = UDim2.new(1, 0, 0, totalH)
 	Wrapper.Parent                   = Stack
 
-	-- Card
 	local Card                       = Instance.new("Frame")
 	Card.Name                        = "Card"
 	Card.BackgroundColor3            = Color3.fromRGB(8, 8, 8)
@@ -249,7 +238,6 @@ Env.Notify = function(info)
 	UICornerCard.CornerRadius        = UDim.new(0, 10)
 	UICornerCard.Parent              = Card
 
-	-- Noise overlay
 	local Noise                      = Instance.new("ImageLabel")
 	Noise.BackgroundTransparency     = 1
 	Noise.BorderSizePixel            = 0
@@ -263,7 +251,6 @@ Env.Notify = function(info)
 	Noise.ZIndex                     = 1
 	Noise.Parent                     = Card
 
-	-- Stroke
 	local Stroke                     = Instance.new("UIStroke")
 	Stroke.ApplyStrokeMode           = Enum.ApplyStrokeMode.Border
 	Stroke.Color                     = colA
@@ -271,7 +258,6 @@ Env.Notify = function(info)
 	Stroke.Thickness                 = 1
 	Stroke.Parent                    = Card
 
-	-- Shadow
 	local Shadow                     = Instance.new("ImageLabel")
 	Shadow.AnchorPoint               = Vector2.new(0.5, 0.5)
 	Shadow.BackgroundTransparency    = 1
@@ -286,7 +272,6 @@ Env.Notify = function(info)
 	Shadow.SliceCenter               = Rect.new(99, 99, 99, 99)
 	Shadow.Parent                    = Wrapper
 
-	-- Accent bar
 	local AccentBar                  = Instance.new("Frame")
 	AccentBar.BackgroundColor3       = colA
 	AccentBar.BorderSizePixel        = 0
@@ -307,15 +292,15 @@ Env.Notify = function(info)
 	GradAccent.Rotation              = 90
 	GradAccent.Parent                = AccentBar
 
-	-- ── ICON (Centered vertically) ──
 	local iconX  = 18
 	local iconSz = 22
+
 	local IconBg                     = Instance.new("Frame")
 	IconBg.BackgroundColor3          = colA
 	IconBg.BackgroundTransparency    = 0.7
 	IconBg.BorderSizePixel           = 0
 	IconBg.AnchorPoint               = Vector2.new(0, 0.5)
-	IconBg.Position                  = UDim2.new(0, iconX, 0.5, -((iconSz+8)/2))   -- perfectly centered vertically
+	IconBg.Position                  = hasDesc and UDim2.new(0, iconX, 0, 11) or UDim2.new(0, iconX, 0.5, -((iconSz+8)/2))
 	IconBg.Size                      = UDim2.new(0, iconSz + 8, 0, iconSz + 8)
 	IconBg.ZIndex                    = 5
 	IconBg.Parent                    = Card
@@ -349,7 +334,6 @@ Env.Notify = function(info)
 	IconImg.ZIndex                   = 6
 	IconImg.Parent                   = IconBg
 
-	-- Title & Desc
 	local textX = iconX + iconSz + 8 + 10
 
 	local TitleL                     = Instance.new("TextLabel")
@@ -383,14 +367,12 @@ Env.Notify = function(info)
 		DescL.Parent                 = Card
 	end
 
-	-- ── PROGRESS BAR / SLIDER ──
 	local ProgBg, ProgFill, SliderBar, SliderFill, SliderKnob
 	local isDragging = false
 	local startTime, initialDuration
 	local sliderConnection
 
 	if hasSlider then
-		-- Slider background
 		SliderBar = Instance.new("Frame")
 		SliderBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		SliderBar.BackgroundTransparency = 0.9
@@ -404,7 +386,6 @@ Env.Notify = function(info)
 		SliderBarCorner.CornerRadius = UDim.new(1, 0)
 		SliderBarCorner.Parent = SliderBar
 
-		-- Slider fill
 		SliderFill = Instance.new("Frame")
 		SliderFill.BackgroundColor3 = colA
 		SliderFill.BorderSizePixel = 0
@@ -423,7 +404,6 @@ Env.Notify = function(info)
 		}
 		SliderGrad.Parent = SliderFill
 
-		-- Knob
 		SliderKnob = Instance.new("TextButton")
 		SliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		SliderKnob.BackgroundTransparency = 0.5
@@ -444,7 +424,6 @@ Env.Notify = function(info)
 		KnobStroke.Color = colA
 		KnobStroke.Parent = SliderKnob
 
-		-- Drag handling
 		SliderKnob.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 				isDragging = true
@@ -461,9 +440,8 @@ Env.Notify = function(info)
 					local fraction = relativeX / barSize.X
 					SliderKnob.Position = UDim2.new(fraction, 0, 0.5, 0)
 					SliderFill.Size = UDim2.new(fraction, 0, 1, 0)
-					-- Adjust remaining time
 					duration = fraction * (initialDuration or duration)
-					startTime = tick() - (1 - fraction) * (initialDuration or duration)  -- keep elapsed consistent
+					startTime = tick() - (1 - fraction) * (initialDuration or duration)
 				end
 			end
 		end)
@@ -474,7 +452,6 @@ Env.Notify = function(info)
 			end
 		end)
 
-		-- Start slider countdown
 		startTime = tick()
 		initialDuration = duration
 		sliderConnection = game:GetService("RunService").Heartbeat:Connect(function()
@@ -492,7 +469,6 @@ Env.Notify = function(info)
 			end
 		end)
 	else
-		-- Normal progress bar
 		ProgBg                     = Instance.new("Frame")
 		ProgBg.BackgroundColor3          = Color3.fromRGB(255, 255, 255)
 		ProgBg.BackgroundTransparency    = 0.9
@@ -525,7 +501,6 @@ Env.Notify = function(info)
 		GradProg.Parent                  = ProgFill
 	end
 
-	-- Dismiss function
 	local dismissed = false
 	local function dismiss()
 		if dismissed then return end
@@ -540,7 +515,6 @@ Env.Notify = function(info)
 		Wrapper:Destroy()
 	end
 
-	-- Buttons (unchanged, except we skip if slider exists to avoid clutter)
 	if hasButtons then
 		local btnCount  = #buttons
 		local padding   = 8
@@ -625,7 +599,6 @@ Env.Notify = function(info)
 		end
 	end
 
-	-- Slide-in animation
 	Wrapper.Position = UDim2.new(1, 20, 0, 0)
 	Card.BackgroundTransparency = 0.95
 
@@ -636,7 +609,6 @@ Env.Notify = function(info)
 		BackgroundTransparency = 0.35,
 	}):Play()
 
-	-- Auto-dismiss if no slider
 	if not hasSlider then
 		task.delay(0.45, function()
 			if dismissed then return end
