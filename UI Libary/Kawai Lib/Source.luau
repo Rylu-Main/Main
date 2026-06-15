@@ -158,367 +158,500 @@ KawaiFlags = setmetatable({}, {
 	__newindex = function(_, k, v) Env.Config:SetFlag(k, v) end,
 })
 
-local function asColor3(v)
-	if typeof(v) == "Color3" then
-		return v
-	end
-
-	if type(v) == "table" then
-		if v.R and v.G and v.B then
-			return Color3.fromRGB(v.R, v.G, v.B)
-		end
-		if v[1] and v[2] and v[3] then
-			return Color3.fromRGB(v[1], v[2], v[3])
-		end
-	end
-
-	return nil
-end
-
+-- ── UPDATED NOTIFICATION SYSTEM ───────────────────────────
+-- Added: custom Color, fixed icon centering, optional DurationSlider
 Env.Notify = function(info)
 	local ok, err = pcall(function()
-		local title = tostring(info.Title or "Notification")
-		local desc = tostring(info.Desc or "")
-		local duration = math.max(tonumber(info.Duration) or 3, 0)
-		local ntype = tostring(info.Type or "info"):lower()
-		local icon = info.Icon
-		local buttons = info.Buttons
 
-		local typeGrad = {
-			info    = { Color3.fromRGB(0, 170, 255), Color3.fromRGB(85, 85, 255) },
-			success = { Color3.fromRGB(0, 220, 110), Color3.fromRGB(0, 170, 255) },
-			error   = { Color3.fromRGB(255, 70, 70), Color3.fromRGB(200, 0, 80) },
-			warning = { Color3.fromRGB(255, 190, 0), Color3.fromRGB(255, 90, 0) },
-		}
+	local title    = tostring(info.Title    or "Notification")
+	local desc     = tostring(info.Desc     or "")
+	local duration = tonumber(info.Duration) or 3
+	local ntype    = info.Type              or "info"
+	local icon     = info.Icon
+	local buttons  = info.Buttons
+	local customColor     = info.Color            -- optional {Color3, Color3}
+	local durationSlider = info.DurationSlider    -- if true, shows interactive slider
 
-		local typeIcon = {
-			info    = "rbxassetid://7072725342",
-			success = "rbxassetid://7734053495",
-			error   = "rbxassetid://8800303348",
-			warning = "rbxassetid://8800428538",
-		}
+	-- Gradient logic
+	local typeGrad = {
+		info    = {Color3.fromRGB(0, 170, 255),  Color3.fromRGB(85, 85, 255)},
+		success = {Color3.fromRGB(0, 220, 110),  Color3.fromRGB(0, 170, 255)},
+		error   = {Color3.fromRGB(255, 70, 70),  Color3.fromRGB(200, 0, 80) },
+		warning = {Color3.fromRGB(255, 190, 0),  Color3.fromRGB(255, 90, 0) },
+	}
+	local grad = (type(customColor) == "table" and #customColor == 2) and {customColor[1], customColor[2]} or typeGrad[ntype] or typeGrad.info
+	local colA, colB = grad[1], grad[2]
 
-		local grad = typeGrad[ntype] or typeGrad.info
-		local colA = asColor3(info.Color) or grad[1]
-		local colB = asColor3(info.Color2) or grad[2]
+	local typeIcon = {
+		info    = "rbxassetid://7072725342",
+		success = "rbxassetid://7734053495",
+		error   = "rbxassetid://8800303348",
+		warning = "rbxassetid://8800428538",
+	}
 
-		local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-		local notifHolder = playerGui:FindFirstChild("KawaiNotifHolder")
+	local Screen     = game:GetService("Players").LocalPlayer.PlayerGui
+	local hasDesc    = desc ~= ""
+	local hasButtons = type(buttons) == "table" and #buttons > 0
+	local hasSlider  = durationSlider and not hasButtons  -- only one interactive element for simplicity
 
-		if not notifHolder then
-			notifHolder = Instance.new("ScreenGui")
-			notifHolder.Name = "KawaiNotifHolder"
-			notifHolder.ResetOnSpawn = false
-			notifHolder.IgnoreGuiInset = true
-			notifHolder.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-			notifHolder.DisplayOrder = 9999
-			notifHolder.Parent = playerGui
+	local baseH  = hasDesc and 72 or 50
+	local totalH = baseH + (hasButtons and 46 or 0) + (hasSlider and 28 or 0)
 
-			local stack = Instance.new("Frame")
-			stack.Name = "Stack"
-			stack.AnchorPoint = Vector2.new(1, 1)
-			stack.Position = UDim2.new(1, -16, 1, -16)
-			stack.Size = UDim2.new(0, 310, 0, 0)
-			stack.AutomaticSize = Enum.AutomaticSize.Y
-			stack.BackgroundTransparency = 1
-			stack.BorderSizePixel = 0
-			stack.Parent = notifHolder
+	-- Ensure container exists
+	local NotifHolder = Screen:FindFirstChild("KawaiNotifHolder")
+	if not NotifHolder then
+		NotifHolder                  = Instance.new("ScreenGui")
+		NotifHolder.Name             = "KawaiNotifHolder"
+		NotifHolder.ResetOnSpawn     = false
+		NotifHolder.ZIndexBehavior   = Enum.ZIndexBehavior.Sibling
+		NotifHolder.DisplayOrder     = 999
+		NotifHolder.Parent           = Screen
 
-			local list = Instance.new("UIListLayout")
-			list.HorizontalAlignment = Enum.HorizontalAlignment.Right
-			list.VerticalAlignment = Enum.VerticalAlignment.Bottom
-			list.SortOrder = Enum.SortOrder.LayoutOrder
-			list.Padding = UDim.new(0, 8)
-			list.Parent = stack
-		end
+		local Stack                  = Instance.new("Frame")
+		Stack.Name                   = "Stack"
+		Stack.AnchorPoint            = Vector2.new(1, 1)
+		Stack.BackgroundTransparency = 1
+		Stack.BorderSizePixel        = 0
+		Stack.Position               = UDim2.new(1, -16, 1, -16)
+		Stack.Size                   = UDim2.new(0, 310, 1, -32)
+		Stack.Parent                 = NotifHolder
 
-		local stack = notifHolder:WaitForChild("Stack")
-		local hasDesc = desc ~= ""
-		local hasButtons = type(buttons) == "table" and #buttons > 0
-		local baseH = hasDesc and 72 or 50
-		local totalH = baseH + (hasButtons and 46 or 0)
+		local UIList                 = Instance.new("UIListLayout")
+		UIList.HorizontalAlignment   = Enum.HorizontalAlignment.Right
+		UIList.VerticalAlignment     = Enum.VerticalAlignment.Bottom
+		UIList.SortOrder             = Enum.SortOrder.LayoutOrder
+		UIList.Padding               = UDim.new(0, 8)
+		UIList.Parent                = Stack
+	end
 
-		local wrapper = Instance.new("Frame")
-		wrapper.Name = "KawaiNotif"
-		wrapper.BackgroundTransparency = 1
-		wrapper.BorderSizePixel = 0
-		wrapper.Size = UDim2.new(1, 0, 0, totalH)
-		wrapper.LayoutOrder = math.floor(os.clock() * 1000)
-		wrapper.Parent = stack
+	local Stack = NotifHolder:FindFirstChild("Stack")
 
-		local shadow = Instance.new("ImageLabel")
-		shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-		shadow.BackgroundTransparency = 1
-		shadow.BorderSizePixel = 0
-		shadow.Position = UDim2.new(0.5, 0, 0.5, 6)
-		shadow.Size = UDim2.new(1, 46, 1, 46)
-		shadow.ZIndex = 0
-		shadow.Image = "rbxassetid://8992230677"
-		shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-		shadow.ImageTransparency = 0.5
-		shadow.ScaleType = Enum.ScaleType.Slice
-		shadow.SliceCenter = Rect.new(99, 99, 99, 99)
-		shadow.Parent = wrapper
+	-- Wrapper
+	local Wrapper                    = Instance.new("Frame")
+	Wrapper.Name                     = "KawaiNotif"
+	Wrapper.BackgroundTransparency   = 1
+	Wrapper.BorderSizePixel          = 0
+	Wrapper.Size                     = UDim2.new(1, 0, 0, totalH)
+	Wrapper.Parent                   = Stack
 
-		local card = Instance.new("Frame")
-		card.Name = "Card"
-		card.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
-		card.BackgroundTransparency = 0.35
-		card.BorderSizePixel = 0
-		card.Size = UDim2.new(1, 0, 1, 0)
-		card.Position = UDim2.new(1, 20, 0, 0)
-		card.ClipsDescendants = true
-		card.ZIndex = 2
-		card.Parent = wrapper
+	-- Card
+	local Card                       = Instance.new("Frame")
+	Card.Name                        = "Card"
+	Card.BackgroundColor3            = Color3.fromRGB(8, 8, 8)
+	Card.BackgroundTransparency      = 0.35
+	Card.BorderSizePixel             = 0
+	Card.Size                        = UDim2.new(1, 0, 1, 0)
+	Card.ClipsDescendants            = true
+	Card.ZIndex                      = 2
+	Card.Parent                      = Wrapper
 
-		local cornerCard = Instance.new("UICorner")
-		cornerCard.CornerRadius = UDim.new(0, 10)
-		cornerCard.Parent = card
+	local UICornerCard               = Instance.new("UICorner")
+	UICornerCard.CornerRadius        = UDim.new(0, 10)
+	UICornerCard.Parent              = Card
 
-		local stroke = Instance.new("UIStroke")
-		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		stroke.Color = colA
-		stroke.Transparency = 0.75
-		stroke.Thickness = 1
-		stroke.Parent = card
+	-- Noise overlay
+	local Noise                      = Instance.new("ImageLabel")
+	Noise.BackgroundTransparency     = 1
+	Noise.BorderSizePixel            = 0
+	Noise.AnchorPoint                = Vector2.new(0.5, 0.5)
+	Noise.Position                   = UDim2.new(0.5, 0, 0.5, 0)
+	Noise.Size                       = UDim2.new(1, 0, 1, 0)
+	Noise.Image                      = "rbxassetid://132687652275989"
+	Noise.ImageColor3                = colA
+	Noise.ImageTransparency          = 0.9
+	Noise.ScaleType                  = Enum.ScaleType.Crop
+	Noise.ZIndex                     = 1
+	Noise.Parent                     = Card
 
-		local accentBar = Instance.new("Frame")
-		accentBar.BackgroundColor3 = colA
-		accentBar.BorderSizePixel = 0
-		accentBar.Position = UDim2.new(0, 7, 0, 9)
-		accentBar.Size = UDim2.new(0, 3, 1, hasButtons and -53 or -18)
-		accentBar.ZIndex = 5
-		accentBar.Parent = card
+	-- Stroke
+	local Stroke                     = Instance.new("UIStroke")
+	Stroke.ApplyStrokeMode           = Enum.ApplyStrokeMode.Border
+	Stroke.Color                     = colA
+	Stroke.Transparency              = 0.75
+	Stroke.Thickness                 = 1
+	Stroke.Parent                    = Card
 
-		local accentCorner = Instance.new("UICorner")
-		accentCorner.CornerRadius = UDim.new(1, 0)
-		accentCorner.Parent = accentBar
+	-- Shadow
+	local Shadow                     = Instance.new("ImageLabel")
+	Shadow.AnchorPoint               = Vector2.new(0.5, 0.5)
+	Shadow.BackgroundTransparency    = 1
+	Shadow.BorderSizePixel           = 0
+	Shadow.Position                  = UDim2.new(0.5, 0, 0.5, 6)
+	Shadow.Size                      = UDim2.new(1, 46, 1, 46)
+	Shadow.ZIndex                    = 0
+	Shadow.Image                     = "rbxassetid://8992230677"
+	Shadow.ImageColor3               = Color3.fromRGB(0, 0, 0)
+	Shadow.ImageTransparency         = 0.5
+	Shadow.ScaleType                 = Enum.ScaleType.Slice
+	Shadow.SliceCenter               = Rect.new(99, 99, 99, 99)
+	Shadow.Parent                    = Wrapper
 
-		local accentGrad = Instance.new("UIGradient")
-		accentGrad.Color = ColorSequence.new{
+	-- Accent bar
+	local AccentBar                  = Instance.new("Frame")
+	AccentBar.BackgroundColor3       = colA
+	AccentBar.BorderSizePixel        = 0
+	AccentBar.Position               = UDim2.new(0, 7, 0, 9)
+	AccentBar.Size                   = UDim2.new(0, 3, 1, hasButtons and -53 or (hasSlider and -46 or -18))
+	AccentBar.ZIndex                 = 5
+	AccentBar.Parent                 = Card
+
+	local UICornerAccent             = Instance.new("UICorner")
+	UICornerAccent.CornerRadius      = UDim.new(1, 0)
+	UICornerAccent.Parent            = AccentBar
+
+	local GradAccent                 = Instance.new("UIGradient")
+	GradAccent.Color                 = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, colA),
+		ColorSequenceKeypoint.new(1, colB),
+	}
+	GradAccent.Rotation              = 90
+	GradAccent.Parent                = AccentBar
+
+	-- ── ICON (Centered vertically) ──
+	local iconX  = 18
+	local iconSz = 22
+	local IconBg                     = Instance.new("Frame")
+	IconBg.BackgroundColor3          = colA
+	IconBg.BackgroundTransparency    = 0.7
+	IconBg.BorderSizePixel           = 0
+	IconBg.AnchorPoint               = Vector2.new(0, 0.5)
+	IconBg.Position                  = UDim2.new(0, iconX, 0.5, -((iconSz+8)/2))   -- perfectly centered vertically
+	IconBg.Size                      = UDim2.new(0, iconSz + 8, 0, iconSz + 8)
+	IconBg.ZIndex                    = 5
+	IconBg.Parent                    = Card
+
+	local UICornerIconBg             = Instance.new("UICorner")
+	UICornerIconBg.CornerRadius      = UDim.new(0, 7)
+	UICornerIconBg.Parent            = IconBg
+
+	local GradIconBg                 = Instance.new("UIGradient")
+	GradIconBg.Color                 = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, colA),
+		ColorSequenceKeypoint.new(1, colB),
+	}
+	GradIconBg.Rotation              = 45
+	GradIconBg.Transparency          = NumberSequence.new{
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(1, 0.8),
+	}
+	GradIconBg.Parent                = IconBg
+
+	local iconAsset = icon and GetIcon(icon) or (typeIcon[ntype] or typeIcon.info)
+
+	local IconImg                    = Instance.new("ImageLabel")
+	IconImg.BackgroundTransparency   = 1
+	IconImg.BorderSizePixel          = 0
+	IconImg.AnchorPoint              = Vector2.new(0.5, 0.5)
+	IconImg.Position                 = UDim2.new(0.5, 0, 0.5, 0)
+	IconImg.Size                     = UDim2.new(0, iconSz, 0, iconSz)
+	IconImg.Image                    = iconAsset
+	IconImg.ImageColor3              = Color3.fromRGB(255, 255, 255)
+	IconImg.ZIndex                   = 6
+	IconImg.Parent                   = IconBg
+
+	-- Title & Desc
+	local textX = iconX + iconSz + 8 + 10
+
+	local TitleL                     = Instance.new("TextLabel")
+	TitleL.BackgroundTransparency    = 1
+	TitleL.BorderSizePixel           = 0
+	TitleL.AnchorPoint               = Vector2.new(0, 0)
+	TitleL.Position                  = hasDesc and UDim2.new(0, textX, 0, 10) or UDim2.new(0, textX, 0.5, -8)
+	TitleL.Size                      = UDim2.new(1, -(textX + 10), 0, 16)
+	TitleL.Font                      = Enum.Font.GothamBold
+	TitleL.Text                      = title
+	TitleL.TextColor3                = Color3.fromRGB(255, 255, 255)
+	TitleL.TextSize                  = 13
+	TitleL.TextXAlignment            = Enum.TextXAlignment.Left
+	TitleL.TextTruncate              = Enum.TextTruncate.AtEnd
+	TitleL.ZIndex                    = 5
+	TitleL.Parent                    = Card
+
+	if hasDesc then
+		local DescL                  = Instance.new("TextLabel")
+		DescL.BackgroundTransparency = 1
+		DescL.BorderSizePixel        = 0
+		DescL.AnchorPoint            = Vector2.new(0, 0.5)
+		DescL.Position               = UDim2.new(0, textX, 0, 34)
+		DescL.Size                   = UDim2.new(1, -(textX + 10), 0, 26)
+		DescL.Font                   = Enum.Font.Gotham
+		DescL.Text                   = desc
+		DescL.TextColor3             = Color3.fromRGB(160, 160, 160)
+		DescL.TextSize               = 11
+		DescL.TextWrapped            = true
+		DescL.ZIndex                 = 5
+		DescL.Parent                 = Card
+	end
+
+	-- ── PROGRESS BAR / SLIDER ──
+	local ProgBg, ProgFill, SliderBar, SliderFill, SliderKnob
+	local isDragging = false
+	local startTime, initialDuration
+	local sliderConnection
+
+	if hasSlider then
+		-- Slider background
+		SliderBar = Instance.new("Frame")
+		SliderBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		SliderBar.BackgroundTransparency = 0.9
+		SliderBar.BorderSizePixel = 0
+		SliderBar.Position = UDim2.new(0, 0, 1, -26)
+		SliderBar.Size = UDim2.new(1, 0, 0, 18)
+		SliderBar.ZIndex = 7
+		SliderBar.Parent = Card
+
+		local SliderBarCorner = Instance.new("UICorner")
+		SliderBarCorner.CornerRadius = UDim.new(1, 0)
+		SliderBarCorner.Parent = SliderBar
+
+		-- Slider fill
+		SliderFill = Instance.new("Frame")
+		SliderFill.BackgroundColor3 = colA
+		SliderFill.BorderSizePixel = 0
+		SliderFill.Size = UDim2.new(1, 0, 1, 0)
+		SliderFill.ZIndex = 8
+		SliderFill.Parent = SliderBar
+
+		local SliderFillCorner = Instance.new("UICorner")
+		SliderFillCorner.CornerRadius = UDim.new(1, 0)
+		SliderFillCorner.Parent = SliderFill
+
+		local SliderGrad = Instance.new("UIGradient")
+		SliderGrad.Color = ColorSequence.new{
 			ColorSequenceKeypoint.new(0, colA),
 			ColorSequenceKeypoint.new(1, colB),
 		}
-		accentGrad.Rotation = 90
-		accentGrad.Parent = accentBar
+		SliderGrad.Parent = SliderFill
 
-		local iconX, iconSz = tonumber(info.IconX) or 18, tonumber(info.IconSize) or 22
-		local iconBg = Instance.new("Frame")
-		iconBg.BackgroundColor3 = colA
-		iconBg.BackgroundTransparency = 0.7
-		iconBg.BorderSizePixel = 0
-		iconBg.AnchorPoint = Vector2.new(0, 0.5)
-		iconBg.Position = info.IconPos or (hasDesc and UDim2.new(0, iconX, 0, 11) or UDim2.new(0, iconX, 0.5, -(iconSz // 2 + 4)))
-		iconBg.Size = UDim2.new(0, iconSz + 8, 0, iconSz + 8)
-		iconBg.ZIndex = 5
-		iconBg.Parent = card
+		-- Knob
+		SliderKnob = Instance.new("TextButton")
+		SliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		SliderKnob.BackgroundTransparency = 0.5
+		SliderKnob.BorderSizePixel = 0
+		SliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+		SliderKnob.Position = UDim2.new(1, 0, 0.5, 0)
+		SliderKnob.Size = UDim2.new(0, 14, 0, 14)
+		SliderKnob.Text = ""
+		SliderKnob.ZIndex = 9
+		SliderKnob.Parent = SliderBar
 
-		local iconBgCorner = Instance.new("UICorner")
-		iconBgCorner.CornerRadius = UDim.new(0, 7)
-		iconBgCorner.Parent = iconBg
+		local KnobCorner = Instance.new("UICorner")
+		KnobCorner.CornerRadius = UDim.new(1, 0)
+		KnobCorner.Parent = SliderKnob
 
-		local iconBgGrad = Instance.new("UIGradient")
-		iconBgGrad.Color = ColorSequence.new{
-			ColorSequenceKeypoint.new(0, colA),
-			ColorSequenceKeypoint.new(1, colB),
-		}
-		iconBgGrad.Rotation = 45
-		iconBgGrad.Transparency = NumberSequence.new{
-			NumberSequenceKeypoint.new(0, 0.5),
-			NumberSequenceKeypoint.new(1, 0.8),
-		}
-		iconBgGrad.Parent = iconBg
+		local KnobStroke = Instance.new("UIStroke")
+		KnobStroke.Thickness = 1.5
+		KnobStroke.Color = colA
+		KnobStroke.Parent = SliderKnob
 
-		local iconAsset = (icon ~= nil and GetIcon(icon)) or (typeIcon[ntype] or typeIcon.info)
+		-- Drag handling
+		SliderKnob.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				isDragging = true
+			end
+		end)
 
-		local iconImg = Instance.new("ImageLabel")
-		iconImg.BackgroundTransparency = 1
-		iconImg.BorderSizePixel = 0
-		iconImg.AnchorPoint = Vector2.new(0.5, 0.5)
-		iconImg.Position = UDim2.new(0.5, 0, 0.5, 0)
-		iconImg.Size = UDim2.new(0, iconSz, 0, iconSz)
-		iconImg.Image = iconAsset
-		iconImg.ImageColor3 = Color3.fromRGB(255, 255, 255)
-		iconImg.ZIndex = 6
-		iconImg.Parent = iconBg
+		SliderKnob.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+				if isDragging then
+					local mousePos = UserInputService:GetMouseLocation()
+					local barPos = SliderBar.AbsolutePosition
+					local barSize = SliderBar.AbsoluteSize
+					local relativeX = math.clamp(mousePos.X - barPos.X, 0, barSize.X)
+					local fraction = relativeX / barSize.X
+					SliderKnob.Position = UDim2.new(fraction, 0, 0.5, 0)
+					SliderFill.Size = UDim2.new(fraction, 0, 1, 0)
+					-- Adjust remaining time
+					duration = fraction * (initialDuration or duration)
+					startTime = tick() - (1 - fraction) * (initialDuration or duration)  -- keep elapsed consistent
+				end
+			end
+		end)
 
-		local textX = iconX + iconSz + 18
+		SliderKnob.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				isDragging = false
+			end
+		end)
 
-		local titleL = Instance.new("TextLabel")
-		titleL.BackgroundTransparency = 1
-		titleL.BorderSizePixel = 0
-		titleL.AnchorPoint = Vector2.new(0, 0)
-		titleL.Position = info.TitlePos or (hasDesc and UDim2.new(0, textX, 0, 10) or UDim2.new(0, textX, 0.5, -8))
-		titleL.Size = UDim2.new(1, -(textX + 10), 0, 16)
-		titleL.Font = Enum.Font.GothamBold
-		titleL.Text = title
-		titleL.TextColor3 = asColor3(info.TitleColor) or Color3.fromRGB(255, 255, 255)
-		titleL.TextSize = 13
-		titleL.TextXAlignment = Enum.TextXAlignment.Left
-		titleL.TextTruncate = Enum.TextTruncate.AtEnd
-		titleL.ZIndex = 5
-		titleL.Parent = card
-
-		if hasDesc then
-			local descL = Instance.new("TextLabel")
-			descL.BackgroundTransparency = 1
-			descL.BorderSizePixel = 0
-			descL.AnchorPoint = Vector2.new(0, 0.5)
-			descL.Position = info.DescPos or UDim2.new(0, textX, 0, 34)
-			descL.Size = UDim2.new(1, -(textX + 10), 0, 26)
-			descL.Font = Enum.Font.Gotham
-			descL.Text = desc
-			descL.TextColor3 = asColor3(info.DescColor) or Color3.fromRGB(160, 160, 160)
-			descL.TextSize = 11
-			descL.TextXAlignment = Enum.TextXAlignment.Left
-			descL.TextWrapped = true
-			descL.ZIndex = 5
-			descL.Parent = card
-		end
-		
-		local progBg = Instance.new("Frame")
-		progBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		progBg.BackgroundTransparency = 0.9
-		progBg.BorderSizePixel = 0
-		progBg.Position = UDim2.new(0, 0, 1, -3)
-		progBg.Size = UDim2.new(1, 0, 0, 3)
-		progBg.ZIndex = 5
-		progBg.Parent = card
-
-		local progBgCorner = Instance.new("UICorner")
-		progBgCorner.CornerRadius = UDim.new(1, 0)
-		progBgCorner.Parent = progBg
-
-		local progFill = Instance.new("Frame")
-		progFill.BackgroundColor3 = colA
-		progFill.BorderSizePixel = 0
-		progFill.Size = UDim2.new(1, 0, 1, 0)
-		progFill.ZIndex = 6
-		progFill.Parent = progBg
-
-		local progFillCorner = Instance.new("UICorner")
-		progFillCorner.CornerRadius = UDim.new(1, 0)
-		progFillCorner.Parent = progFill
-
-		local progGrad = Instance.new("UIGradient")
-		progGrad.Color = ColorSequence.new{
-			ColorSequenceKeypoint.new(0, colA),
-			ColorSequenceKeypoint.new(1, colB),
-		}
-		progGrad.Parent = progFill
-
-		local dismissed = false
-
-		local function dismiss()
+		-- Start slider countdown
+		startTime = tick()
+		initialDuration = duration
+		sliderConnection = game:GetService("RunService").Heartbeat:Connect(function()
 			if dismissed then
+				sliderConnection:Disconnect()
 				return
 			end
-			dismissed = true
+			local elapsed = tick() - startTime
+			local fraction = math.clamp(1 - elapsed / initialDuration, 0, 1)
+			SliderFill.Size = UDim2.new(fraction, 0, 1, 0)
+			SliderKnob.Position = UDim2.new(fraction, 0, 0.5, 0)
+			if fraction <= 0 then
+				sliderConnection:Disconnect()
+				dismiss()
+			end
+		end)
+	else
+		-- Normal progress bar
+		ProgBg                     = Instance.new("Frame")
+		ProgBg.BackgroundColor3          = Color3.fromRGB(255, 255, 255)
+		ProgBg.BackgroundTransparency    = 0.9
+		ProgBg.BorderSizePixel           = 0
+		ProgBg.Position                  = UDim2.new(0, 0, 1, -3)
+		ProgBg.Size                      = UDim2.new(1, 0, 0, 3)
+		ProgBg.ZIndex                    = 5
+		ProgBg.Parent                    = Card
 
-			local outTween = TweenService:Create(card, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-				Position = UDim2.new(1, 20, 0, 0),
-				BackgroundTransparency = 1,
-			})
-			outTween:Play()
-			task.delay(0.27, function()
-				if wrapper and wrapper.Parent then
-					wrapper:Destroy()
+		local UICornerProgBg             = Instance.new("UICorner")
+		UICornerProgBg.CornerRadius      = UDim.new(1, 0)
+		UICornerProgBg.Parent            = ProgBg
+
+		ProgFill                   = Instance.new("Frame")
+		ProgFill.BackgroundColor3        = colA
+		ProgFill.BorderSizePixel         = 0
+		ProgFill.Size                    = UDim2.new(1, 0, 1, 0)
+		ProgFill.ZIndex                  = 6
+		ProgFill.Parent                  = ProgBg
+
+		local UICornerProgFill           = Instance.new("UICorner")
+		UICornerProgFill.CornerRadius    = UDim.new(1, 0)
+		UICornerProgFill.Parent          = ProgFill
+
+		local GradProg                   = Instance.new("UIGradient")
+		GradProg.Color                   = ColorSequence.new{
+			ColorSequenceKeypoint.new(0, colA),
+			ColorSequenceKeypoint.new(1, colB),
+		}
+		GradProg.Parent                  = ProgFill
+	end
+
+	-- Dismiss function
+	local dismissed = false
+	local function dismiss()
+		if dismissed then return end
+		dismissed = true
+		TweenService:Create(Wrapper, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Position = UDim2.new(1, 20, 0, 0),
+		}):Play()
+		TweenService:Create(Card, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			BackgroundTransparency = 1,
+		}):Play()
+		task.wait(0.27)
+		Wrapper:Destroy()
+	end
+
+	-- Buttons (unchanged, except we skip if slider exists to avoid clutter)
+	if hasButtons then
+		local btnCount  = #buttons
+		local padding   = 8
+		local btnW      = (310 - 12 * 2 - padding * (btnCount - 1)) / btnCount
+		local btnY      = baseH + 8
+
+		for i, btnInfo in ipairs(buttons) do
+			local label     = tostring(btnInfo.Title or "OK")
+			local callback  = btnInfo.Callback
+			local isPrimary = btnInfo.Primary == true or i == 1
+
+			local BtnFrame                   = Instance.new("Frame")
+			BtnFrame.BackgroundColor3        = isPrimary and colA or Color3.fromRGB(35, 35, 35)
+			BtnFrame.BackgroundTransparency  = isPrimary and 0.1 or 0.45
+			BtnFrame.BorderSizePixel         = 0
+			BtnFrame.Position                = UDim2.new(0, 12 + (i - 1) * (btnW + padding), 0, btnY)
+			BtnFrame.Size                    = UDim2.new(0, btnW, 0, 28)
+			BtnFrame.ZIndex                  = 5
+			BtnFrame.Parent                  = Card
+
+			local UICornerBtn                = Instance.new("UICorner")
+			UICornerBtn.CornerRadius         = UDim.new(0, 7)
+			UICornerBtn.Parent               = BtnFrame
+
+			if not isPrimary then
+				local StrokeBtn              = Instance.new("UIStroke")
+				StrokeBtn.ApplyStrokeMode    = Enum.ApplyStrokeMode.Border
+				StrokeBtn.Color              = Color3.fromRGB(80, 80, 80)
+				StrokeBtn.Transparency       = 0.5
+				StrokeBtn.Thickness          = 1
+				StrokeBtn.Parent             = BtnFrame
+			else
+				local GradBtn                = Instance.new("UIGradient")
+				GradBtn.Color                = ColorSequence.new{
+					ColorSequenceKeypoint.new(0, colA),
+					ColorSequenceKeypoint.new(1, colB),
+				}
+				GradBtn.Rotation             = 45
+				GradBtn.Parent               = BtnFrame
+			end
+
+			local BtnLabel                   = Instance.new("TextLabel")
+			BtnLabel.BackgroundTransparency  = 1
+			BtnLabel.BorderSizePixel         = 0
+			BtnLabel.AnchorPoint             = Vector2.new(0.5, 0.5)
+			BtnLabel.Position                = UDim2.new(0.5, 0, 0.5, 0)
+			BtnLabel.Size                    = UDim2.new(1, -6, 1, 0)
+			BtnLabel.Font                    = Enum.Font.GothamBold
+			BtnLabel.Text                    = label
+			BtnLabel.TextColor3              = Color3.fromRGB(255, 255, 255)
+			BtnLabel.TextSize                = 12
+			BtnLabel.TextScaled              = true
+			BtnLabel.ZIndex                  = 6
+			BtnLabel.Parent                  = BtnFrame
+
+			local BtnClick                   = Instance.new("TextButton")
+			BtnClick.BackgroundTransparency  = 1
+			BtnClick.BorderSizePixel         = 0
+			BtnClick.Position                = BtnFrame.Position
+			BtnClick.Size                    = BtnFrame.Size
+			BtnClick.Text                    = ""
+			BtnClick.ZIndex                  = 9
+			BtnClick.Parent                  = Wrapper
+
+			BtnClick.MouseEnter:Connect(function()
+				TweenService:Create(BtnFrame, TweenInfo.new(0.12), {
+					BackgroundTransparency = isPrimary and 0 or 0.25,
+				}):Play()
+			end)
+			BtnClick.MouseLeave:Connect(function()
+				TweenService:Create(BtnFrame, TweenInfo.new(0.12), {
+					BackgroundTransparency = isPrimary and 0.1 or 0.45,
+				}):Play()
+			end)
+			BtnClick.MouseButton1Click:Connect(function()
+				EffectClick2(BtnClick, Wrapper)
+				if type(callback) == "function" then
+					pcall(callback)
 				end
+				dismiss()
 			end)
 		end
+	end
 
-		if hasButtons then
-			local btnCount = #buttons
-			local padding = 8
-			local btnW = (310 - 12 * 2 - padding * (btnCount - 1)) / btnCount
-			local btnY = baseH + 8
+	-- Slide-in animation
+	Wrapper.Position = UDim2.new(1, 20, 0, 0)
+	Card.BackgroundTransparency = 0.95
 
-			for i, btnInfo in ipairs(buttons) do
-				local label = tostring(btnInfo.Title or "OK")
-				local callback = btnInfo.Callback
-				local isPrimary = btnInfo.Primary == true or i == 1
+	TweenService:Create(Wrapper, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0, 0, 0, 0),
+	}):Play()
+	TweenService:Create(Card, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundTransparency = 0.35,
+	}):Play()
 
-				local btnFrame = Instance.new("Frame")
-				btnFrame.BackgroundColor3 = isPrimary and colA or Color3.fromRGB(35, 35, 35)
-				btnFrame.BackgroundTransparency = isPrimary and 0.1 or 0.45
-				btnFrame.BorderSizePixel = 0
-				btnFrame.Position = UDim2.new(0, 12 + (i - 1) * (btnW + padding), 0, btnY)
-				btnFrame.Size = UDim2.new(0, btnW, 0, 28)
-				btnFrame.ZIndex = 5
-				btnFrame.Parent = card
-
-				local btnCorner = Instance.new("UICorner")
-				btnCorner.CornerRadius = UDim.new(0, 7)
-				btnCorner.Parent = btnFrame
-
-				if not isPrimary then
-					local btnStroke = Instance.new("UIStroke")
-					btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-					btnStroke.Color = Color3.fromRGB(80, 80, 80)
-					btnStroke.Transparency = 0.5
-					btnStroke.Thickness = 1
-					btnStroke.Parent = btnFrame
-				else
-					local btnGrad = Instance.new("UIGradient")
-					btnGrad.Color = ColorSequence.new{
-						ColorSequenceKeypoint.new(0, colA),
-						ColorSequenceKeypoint.new(1, colB),
-					}
-					btnGrad.Rotation = 45
-					btnGrad.Parent = btnFrame
-				end
-
-				local btnLabel = Instance.new("TextLabel")
-				btnLabel.BackgroundTransparency = 1
-				btnLabel.BorderSizePixel = 0
-				btnLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-				btnLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
-				btnLabel.Size = UDim2.new(1, -6, 1, 0)
-				btnLabel.Font = Enum.Font.GothamBold
-				btnLabel.Text = label
-				btnLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-				btnLabel.TextSize = 12
-				btnLabel.TextScaled = true
-				btnLabel.ZIndex = 6
-				btnLabel.Parent = btnFrame
-
-				local btnClick = Instance.new("TextButton")
-				btnClick.BackgroundTransparency = 1
-				btnClick.BorderSizePixel = 0
-				btnClick.Position = btnFrame.Position
-				btnClick.Size = btnFrame.Size
-				btnClick.Text = ""
-				btnClick.ZIndex = 9
-				btnClick.Parent = wrapper
-
-				btnClick.MouseButton1Click:Connect(function()
-					EffectClick2(btnClick, wrapper)
-					if type(callback) == "function" then
-						pcall(callback)
-					end
-					dismiss()
-				end)
-			end
-		end
-
-		TweenService:Create(card, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Position = UDim2.new(0, 0, 0, 0),
-		}):Play()
-
+	-- Auto-dismiss if no slider
+	if not hasSlider then
 		task.delay(0.45, function()
-			if dismissed then
-				return
-			end
-			TweenService:Create(progFill, TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
+			if dismissed then return end
+			TweenService:Create(ProgFill, TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
 				Size = UDim2.new(0, 0, 1, 0),
 			}):Play()
 		end)
-
-		if duration > 0 then
+		if not hasButtons then
+			task.delay(0.45 + duration, dismiss)
+		elseif duration > 0 then
 			task.delay(0.45 + duration, dismiss)
 		end
-	end)
+	end
 
+	end)
 	if not ok then
 		warn("[KawaiLib] Notify error: " .. tostring(err))
 	end
