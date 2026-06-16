@@ -389,6 +389,7 @@ Env.Notify = function(info)
 	DescL.Text                     = desc
 	DescL.TextColor3               = Color3.fromRGB(160, 160, 160)
 	DescL.TextSize                 = 11
+	DescL.TextXAlignment           = Enum.TextXAlignment.Left
 	DescL.TextTruncate             = Enum.TextTruncate.AtEnd
 	DescL.ZIndex                   = 5
 	DescL.Visible                  = hasDesc
@@ -1962,13 +1963,14 @@ function Env:Window(meta)
 				Desc_1.BorderColor3 = Color3.fromRGB(0,0,0)
 				Desc_1.BorderSizePixel = 0
 				Desc_1.Position = UDim2.new(0.611293197, 0,0.675000012, 0)
-				Desc_1.Size = UDim2.new(0.64, 0, 0, 18)
+				Desc_1.Size = UDim2.new(0.704753578, 0, 0, 18)
 				Desc_1.Font = Enum.Font.GothamBold
 				Desc_1.Text = Link
 				Desc_1.TextColor3 = Color3.fromRGB(255,255,255)
 				Desc_1.TextSize = 13
 				Desc_1.TextTransparency = 0.5
 				Desc_1.TextXAlignment = Enum.TextXAlignment.Left
+				Desc_1.TextTruncate = Enum.TextTruncate.AtEnd
 
 				ClickDiscord.MouseButton1Click:Connect(function()
 					pcall(setclipboard, tostring(Link))
