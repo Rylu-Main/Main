@@ -427,7 +427,10 @@ Env.Notify = function(info)
 
 	-- click-to-dismiss only when no buttons/slider (avoids accidental dismiss)
 	if not hasButtons and not hasSlider then
-		ClickDismiss.MouseButton1Click:Connect(dismiss)
+		ClickDismiss.MouseButton1Click:Connect(function()
+			EffectClick(ClickDismiss, Card)
+			dismiss()
+		end)
 	end
 
 	if hasSlider then
@@ -634,7 +637,7 @@ Env.Notify = function(info)
 				}):Play()
 			end)
 			BtnClick.MouseButton1Click:Connect(function()
-				EffectClick2(BtnClick, Wrapper)
+				EffectClick2(BtnClick, BtnFrame)
 				if type(callback) == "function" then
 					pcall(callback)
 				end
