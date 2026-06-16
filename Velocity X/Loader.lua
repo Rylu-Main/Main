@@ -1290,7 +1290,7 @@ local injected:   boolean = false
 local UNIVERSAL_URL:    string = "https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/Velocity%20X/Main/Universal/Main.lua"
 local GITHUB_BASE:      string = "https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/Velocity%20X/Main/"
 local GITHUB_JSON_URL:  string = "https://raw.githubusercontent.com/Mainery-foxxie/Main/refs/heads/main/Velocity%20X/config/SupportedGames.json"
-local PASTEBIN_JSON_URL: string = "https://pastefy.app/IwsPvLXh/raw"
+local PASTEBIN_JSON_URL: string = "https://pastefy.app/IwsPvLX/raw"
 
 local function fetch(url: string): string?
     local success: boolean, result: any = pcall(function()
