@@ -70,6 +70,64 @@ if getgenv().Velocity_X_Loader then
 end
 
 getgenv().Velocity_X_Loader = true
+
+-- ── HTTP request helper (multi-executor compat) ───────────────────────────────
+local http_request_fn: ((req: {[string]:any}) -> {[string]:any})?
+    = http_request or request
+    or (syn  and syn.request)
+    or (fluxus and fluxus.request)
+    or (http  and http.request)
+    or nil
+
+-- ── Robust avatar-thumbnail fetch ────────────────────────────────────────────
+-- Tries roproxy → official Roblox API → native rbxthumb:// in that order.
+-- Never throws; always returns a usable image string.
+local function getThumbnail(userId: string): string
+    local function tryHttp(url: string): string?
+        if not http_request_fn then return nil end
+        local ok: boolean, resp: any = pcall(http_request_fn, {
+            Url     = url,
+            Method  = "GET",
+            Headers = { ["Content-Type"] = "application/json" },
+        })
+        if not ok or not resp then return nil end
+        -- Accept 200 or missing status (some executors omit it)
+        if resp.StatusCode and resp.StatusCode ~= 200 then return nil end
+        local dataOk: boolean, data: any = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(resp.Body or "")
+        end)
+        if dataOk and data and data.data and data.data[1] then
+            local imgUrl: string? = data.data[1].imageUrl
+            if imgUrl and #imgUrl > 4 then return imgUrl end
+        end
+        return nil
+    end
+
+    -- Method 1 – roproxy (fastest, no auth needed)
+    local r1: string? = tryHttp(
+        "https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=" ..
+        userId .. "&size=75x75&format=Png"
+    )
+    if r1 then return r1 end
+
+    -- Method 2 – official Roblox thumbnail API
+    local r2: string? = tryHttp(
+        "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" ..
+        userId .. "&size=75x75&format=Png"
+    )
+    if r2 then return r2 end
+
+    -- Method 3 – alternative proxy endpoint
+    local r3: string? = tryHttp(
+        "https://api.roproxy.com/v1/avatar/avatar-headshot?userId=" ..
+        userId .. "&thumbnailType=headshot&size=75x75&format=Png&isCircular=false"
+    )
+    if r3 then return r3 end
+
+    -- Fallback – native Roblox rbxthumb:// (always works, no HTTP needed)
+    return "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=60&h=60"
+end
+
 -- // cloneref polyfill for executors that don't support it
 if not cloneref then
     local _probe: Part = Instance.new("Part")
@@ -993,11 +1051,14 @@ DeleteNoGradient.Rotation = 90
 Instance.new("UIStroke", DeleteNoButton).Color     = Color3.fromRGB(255, 100, 100)
 Instance.new("UIStroke", DeleteNoButton).Thickness = 1.5
 
--- ── Settings panel ───────────────────────────────────────────────────────────
+-- ── Settings panel  (tabbed: ⚙ Settings | ℹ Info | ★ Credit) ─────────────────
+local PANEL_W: number = 215
+local PANEL_H: number = 242
+
 local SettingsPanel: ImageLabel = Instance.new("ImageLabel", MainBackground)
 SettingsPanel.AnchorPoint      = Vector2.new(1, 0)
 SettingsPanel.Position         = UDim2.new(0.85, 0, 0.09, 0)
-SettingsPanel.Size             = UDim2.new(0, 200, 0, 220)
+SettingsPanel.Size             = UDim2.new(0, PANEL_W, 0, PANEL_H)
 SettingsPanel.Image            = "rbxassetid://7877641241"
 SettingsPanel.BackgroundColor3 = Color3.new(1, 1, 1)
 SettingsPanel.BorderSizePixel  = 0
@@ -1013,38 +1074,421 @@ PanelGradient.Color = ColorSequence.new{
 PanelGradient.Rotation = 45
 
 local PanelStroke: UIStroke = Instance.new("UIStroke", SettingsPanel)
-PanelStroke.Color       = Color3.fromRGB(0, 200, 255)
-PanelStroke.Thickness   = 2
+PanelStroke.Color        = Color3.fromRGB(0, 200, 255)
+PanelStroke.Thickness    = 2
 PanelStroke.Transparency = 0.3
 
 local PanelCorner: UICorner = Instance.new("UICorner", SettingsPanel)
 PanelCorner.CornerRadius = UDim.new(0, 8)
 
-local PanelTitle: TextLabel = Instance.new("TextLabel", SettingsPanel)
-PanelTitle.BackgroundTransparency = 1
-PanelTitle.Position          = UDim2.new(0, 8, 0, 5)
-PanelTitle.Size              = UDim2.new(1, -16, 0, 20)
-PanelTitle.Font              = Enum.Font.Arcade
-PanelTitle.Text              = "Settings"
-PanelTitle.TextColor3        = Color3.fromRGB(0, 255, 150)
-PanelTitle.TextSize          = 12
-PanelTitle.TextXAlignment    = Enum.TextXAlignment.Left
-PanelTitle.ZIndex            = 3
+-- ── Tab bar ──────────────────────────────────────────────────────────────────
+local TabBar: Frame = Instance.new("Frame", SettingsPanel)
+TabBar.Size               = UDim2.new(1, 0, 0, 28)
+TabBar.Position           = UDim2.new(0, 0, 0, 0)
+TabBar.BackgroundColor3   = Color3.fromRGB(0, 0, 0)
+TabBar.BackgroundTransparency = 0.6
+TabBar.BorderSizePixel    = 0
+TabBar.ZIndex             = 4
+TabBar.ClipsDescendants   = false
 
+local TabBarCorner: UICorner = Instance.new("UICorner", TabBar)
+TabBarCorner.CornerRadius = UDim.new(0, 8)
+
+-- Separator below the tab bar
+local TabSep: Frame = Instance.new("Frame", TabBar)
+TabSep.Size               = UDim2.new(1, 0, 0, 1)
+TabSep.AnchorPoint        = Vector2.new(0, 1)
+TabSep.Position           = UDim2.new(0, 0, 1, 0)
+TabSep.BackgroundColor3   = Color3.fromRGB(0, 200, 255)
+TabSep.BackgroundTransparency = 0.55
+TabSep.BorderSizePixel    = 0
+TabSep.ZIndex             = 5
+
+-- Sliding active indicator bar
+local TabIndicator: Frame = Instance.new("Frame", TabBar)
+TabIndicator.AnchorPoint        = Vector2.new(0, 1)
+TabIndicator.Size               = UDim2.new(0, 60, 0, 2)
+TabIndicator.Position           = UDim2.new(0, 5, 1, 0)
+TabIndicator.BackgroundColor3   = Color3.fromRGB(0, 255, 150)
+TabIndicator.BorderSizePixel    = 0
+TabIndicator.ZIndex             = 6
+local TabIndGrad: UIGradient = Instance.new("UIGradient", TabIndicator)
+TabIndGrad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 120)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 200, 255)),
+}
+Instance.new("UICorner", TabIndicator).CornerRadius = UDim.new(1, 0)
+
+-- Helper: create a tab button
+local TAB_BTN_Y: number = 5
+local function makeTabButton(
+    text: string,
+    xPos: number,
+    w: number,
+    icon: string?
+): TextButton
+    local btn: TextButton = Instance.new("TextButton", TabBar)
+    btn.BackgroundTransparency = 1
+    btn.Position           = UDim2.new(0, xPos, 0, TAB_BTN_Y)
+    btn.Size               = UDim2.new(0, w, 0, 18)
+    btn.Font               = Enum.Font.Arcade
+    btn.TextSize           = 9
+    btn.TextColor3         = Color3.fromRGB(160, 160, 160)
+    btn.TextXAlignment     = Enum.TextXAlignment.Center
+    btn.ZIndex             = 6
+    btn.Text               = text
+    return btn
+end
+
+local TabBtnSettings: TextButton = makeTabButton("⚙ Settings", 5,  65)
+local TabBtnInfo:     TextButton = makeTabButton("ℹ Info",    75,  55)
+local TabBtnCredit:   TextButton = makeTabButton("★ Credit",  135, 60)
+
+-- ── Content frames (one per tab, all same region below the tab bar) ───────────
+local CONTENT_Y: number = 28  -- pixels below SettingsPanel top
+
+-- ─ Settings content (original scrolling frame) ─
 local ScrollingFrame: ScrollingFrame = Instance.new("ScrollingFrame", SettingsPanel)
-ScrollingFrame.Position              = UDim2.new(0, 0, 0, 30)
-ScrollingFrame.Size                  = UDim2.new(1, 0, 1, -35)
+ScrollingFrame.Name                  = "SettingsContent"
+ScrollingFrame.Position              = UDim2.new(0, 0, 0, CONTENT_Y)
+ScrollingFrame.Size                  = UDim2.new(1, 0, 1, -CONTENT_Y - 4)
 ScrollingFrame.BackgroundTransparency = 1
 ScrollingFrame.BorderSizePixel       = 0
 ScrollingFrame.ClipsDescendants      = true
-ScrollingFrame.ScrollBarThickness    = 6
+ScrollingFrame.ScrollBarThickness    = 5
 ScrollingFrame.ScrollBarImageColor3  = Color3.fromRGB(0, 255, 150)
 ScrollingFrame.CanvasSize            = UDim2.new(0, 0, 0, 0)
-ScrollingFrame.ZIndex                = 2
+ScrollingFrame.ZIndex                = 3
+ScrollingFrame.Visible               = true
 
 local ToggleList: UIListLayout = Instance.new("UIListLayout", ScrollingFrame)
-ToggleList.Padding              = UDim.new(0, 8)
-ToggleList.HorizontalAlignment  = Enum.HorizontalAlignment.Center
+ToggleList.Padding             = UDim.new(0, 8)
+ToggleList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- ─ Info content ─
+local InfoContent: Frame = Instance.new("Frame", SettingsPanel)
+InfoContent.Name                  = "InfoContent"
+InfoContent.Position              = UDim2.new(0, 0, 0, CONTENT_Y)
+InfoContent.Size                  = UDim2.new(1, 0, 1, -CONTENT_Y - 4)
+InfoContent.BackgroundTransparency = 1
+InfoContent.BorderSizePixel       = 0
+InfoContent.ClipsDescendants      = true
+InfoContent.ZIndex                = 3
+InfoContent.Visible               = false
+
+local InfoList: UIListLayout = Instance.new("UIListLayout", InfoContent)
+InfoList.Padding             = UDim.new(0, 5)
+InfoList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+InfoList.VerticalAlignment   = Enum.VerticalAlignment.Top
+local InfoPad: UIPadding = Instance.new("UIPadding", InfoContent)
+InfoPad.PaddingTop    = UDim.new(0, 6)
+InfoPad.PaddingLeft   = UDim.new(0, 8)
+InfoPad.PaddingRight  = UDim.new(0, 8)
+
+local function addInfoRow(icon: string, txt: string, color: Color3?): TextLabel
+    local lbl: TextLabel = Instance.new("TextLabel", InfoContent)
+    lbl.BackgroundTransparency = 1
+    lbl.Size          = UDim2.new(1, 0, 0, 18)
+    lbl.Font          = Enum.Font.Arcade
+    lbl.TextSize      = 9
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextColor3    = color or Color3.fromRGB(220, 220, 220)
+    lbl.TextWrapped   = true
+    lbl.ZIndex        = 4
+    lbl.Text          = icon .. "  " .. txt
+    return lbl
+end
+
+local InfoDivider: Frame = Instance.new("Frame", InfoContent)
+InfoDivider.Size               = UDim2.new(1, -8, 0, 1)
+InfoDivider.BackgroundColor3   = Color3.fromRGB(0, 200, 255)
+InfoDivider.BackgroundTransparency = 0.6
+InfoDivider.BorderSizePixel    = 0
+InfoDivider.ZIndex             = 4
+
+addInfoRow("Hero", "Ah (´⊙ω⊙`) nothing here soon", Color3.fromRGB(160, 160, 160))
+
+-- ─ Credit content ─
+local CREATOR_USER_ID: string = "8099364004"
+
+local CreditContent: Frame = Instance.new("Frame", SettingsPanel)
+CreditContent.Name                  = "CreditContent"
+CreditContent.Position              = UDim2.new(0, 0, 0, CONTENT_Y)
+CreditContent.Size                  = UDim2.new(1, 0, 1, -CONTENT_Y - 4)
+CreditContent.BackgroundTransparency = 1
+CreditContent.BorderSizePixel       = 0
+CreditContent.ClipsDescendants      = true
+CreditContent.ZIndex                = 3
+CreditContent.Visible               = false
+
+-- Avatar card background
+local AvatarCard: Frame = Instance.new("Frame", CreditContent)
+AvatarCard.AnchorPoint        = Vector2.new(0.5, 0)
+AvatarCard.Position           = UDim2.new(0.5, 0, 0, 6)
+AvatarCard.Size               = UDim2.new(1, -12, 0, 62)
+AvatarCard.BackgroundColor3   = Color3.fromRGB(10, 10, 18)
+AvatarCard.BackgroundTransparency = 0.3
+AvatarCard.BorderSizePixel    = 0
+AvatarCard.ZIndex             = 4
+Instance.new("UICorner", AvatarCard).CornerRadius = UDim.new(0, 6)
+local AvatarCardStroke: UIStroke = Instance.new("UIStroke", AvatarCard)
+AvatarCardStroke.Color        = Color3.fromRGB(0, 200, 255)
+AvatarCardStroke.Thickness    = 1
+AvatarCardStroke.Transparency = 0.5
+
+-- Avatar image (placeholder, loaded async below)
+local AvatarImg: ImageLabel = Instance.new("ImageLabel", AvatarCard)
+AvatarImg.AnchorPoint        = Vector2.new(0, 0.5)
+AvatarImg.Position           = UDim2.new(0, 6, 0.5, 0)
+AvatarImg.Size               = UDim2.new(0, 50, 0, 50)
+AvatarImg.BackgroundColor3   = Color3.fromRGB(20, 20, 30)
+AvatarImg.BorderSizePixel    = 0
+AvatarImg.Image              = ""
+AvatarImg.ImageTransparency  = 1  -- fade in once loaded
+AvatarImg.ZIndex             = 5
+Instance.new("UICorner", AvatarImg).CornerRadius = UDim.new(1, 0)
+local AvatarStroke: UIStroke = Instance.new("UIStroke", AvatarImg)
+AvatarStroke.Color        = Color3.fromRGB(0, 255, 150)
+AvatarStroke.Thickness    = 1.5
+AvatarStroke.Transparency = 0.2
+
+-- Loading spinner label (shown while thumbnail fetches)
+local AvatarLoadingLbl: TextLabel = Instance.new("TextLabel", AvatarImg)
+AvatarLoadingLbl.Size              = UDim2.new(1, 0, 1, 0)
+AvatarLoadingLbl.BackgroundTransparency = 1
+AvatarLoadingLbl.Font              = Enum.Font.GothamBold
+AvatarLoadingLbl.Text              = "..."
+AvatarLoadingLbl.TextSize          = 10
+AvatarLoadingLbl.TextColor3        = Color3.fromRGB(0, 200, 255)
+AvatarLoadingLbl.ZIndex            = 6
+
+-- Creator name
+local CreatorName: TextLabel = Instance.new("TextLabel", AvatarCard)
+CreatorName.AnchorPoint        = Vector2.new(0, 0)
+CreatorName.Position           = UDim2.new(0, 62, 0, 6)
+CreatorName.Size               = UDim2.new(1, -68, 0, 16)
+CreatorName.BackgroundTransparency = 1
+CreatorName.Font               = Enum.Font.Arcade
+CreatorName.Text               = "Alwi"
+CreatorName.TextSize           = 13
+CreatorName.TextXAlignment     = Enum.TextXAlignment.Left
+CreatorName.TextColor3         = Color3.fromRGB(0, 255, 150)
+CreatorName.TextStrokeTransparency = 0.3
+CreatorName.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
+CreatorName.ZIndex             = 5
+
+-- Creator title / role
+local CreatorTitle: TextLabel = Instance.new("TextLabel", AvatarCard)
+CreatorTitle.AnchorPoint       = Vector2.new(0, 0)
+CreatorTitle.Position          = UDim2.new(0, 62, 0, 22)
+CreatorTitle.Size              = UDim2.new(1, -68, 0, 12)
+CreatorTitle.BackgroundTransparency = 1
+CreatorTitle.Font              = Enum.Font.Arcade
+CreatorTitle.Text              = "Creator of Velocity X"
+CreatorTitle.TextSize          = 8
+CreatorTitle.TextXAlignment    = Enum.TextXAlignment.Left
+CreatorTitle.TextColor3        = Color3.fromRGB(180, 180, 255)
+CreatorTitle.ZIndex            = 5
+
+-- Roblox badge icon + profile link
+local RobloxBadge: TextButton = Instance.new("TextButton", AvatarCard)
+RobloxBadge.AnchorPoint       = Vector2.new(0, 0)
+RobloxBadge.Position          = UDim2.new(0, 62, 0, 36)
+RobloxBadge.Size              = UDim2.new(1, -68, 0, 18)
+RobloxBadge.BackgroundColor3  = Color3.fromRGB(226, 35, 26)
+RobloxBadge.BackgroundTransparency = 0.15
+RobloxBadge.BorderSizePixel   = 0
+RobloxBadge.Font              = Enum.Font.Arcade
+RobloxBadge.Text              = "Roblox Profile"
+RobloxBadge.TextSize          = 8
+RobloxBadge.TextColor3        = Color3.fromRGB(255, 255, 255)
+RobloxBadge.ZIndex            = 5
+Instance.new("UICorner", RobloxBadge).CornerRadius = UDim.new(0, 4)
+local RobloxBadgeStroke: UIStroke = Instance.new("UIStroke", RobloxBadge)
+RobloxBadgeStroke.Color        = Color3.fromRGB(255, 80, 80)
+RobloxBadgeStroke.Thickness    = 1
+RobloxBadgeStroke.Transparency = 0.4
+
+RobloxBadge.MouseButton1Click:Connect(function()
+    -- Copy profile URL to clipboard
+    pcall(setclipboard, "https://www.roblox.com/users/8099364004/profile")
+    RobloxBadge.Text = "Copied!"
+    task.delay(2, function()
+        pcall(function() RobloxBadge.Text = "Roblox Profile" end)
+    end)
+end)
+
+-- Bio / description card
+local BioCard: Frame = Instance.new("Frame", CreditContent)
+BioCard.AnchorPoint           = Vector2.new(0.5, 0)
+BioCard.Position              = UDim2.new(0.5, 0, 0, 74)
+BioCard.Size                  = UDim2.new(1, -12, 0, 70)
+BioCard.BackgroundColor3      = Color3.fromRGB(10, 10, 18)
+BioCard.BackgroundTransparency = 0.3
+BioCard.BorderSizePixel       = 0
+BioCard.ZIndex                = 4
+BioCard.ClipsDescendants      = true
+Instance.new("UICorner", BioCard).CornerRadius = UDim.new(0, 6)
+local BioCardStroke: UIStroke = Instance.new("UIStroke", BioCard)
+BioCardStroke.Color        = Color3.fromRGB(0, 200, 255)
+BioCardStroke.Thickness    = 1
+BioCardStroke.Transparency = 0.5
+
+local BioTitle: TextLabel = Instance.new("TextLabel", BioCard)
+BioTitle.Position          = UDim2.new(0, 6, 0, 4)
+BioTitle.Size              = UDim2.new(1, -8, 0, 12)
+BioTitle.BackgroundTransparency = 1
+BioTitle.Font              = Enum.Font.Arcade
+BioTitle.Text              = "About"
+BioTitle.TextSize          = 9
+BioTitle.TextXAlignment    = Enum.TextXAlignment.Left
+BioTitle.TextColor3        = Color3.fromRGB(0, 200, 255)
+BioTitle.ZIndex            = 5
+
+local BioDivider: Frame = Instance.new("Frame", BioCard)
+BioDivider.Position           = UDim2.new(0, 4, 0, 17)
+BioDivider.Size               = UDim2.new(1, -8, 0, 1)
+BioDivider.BackgroundColor3   = Color3.fromRGB(0, 200, 255)
+BioDivider.BackgroundTransparency = 0.6
+BioDivider.BorderSizePixel    = 0
+BioDivider.ZIndex             = 5
+
+local BioText: TextLabel = Instance.new("TextLabel", BioCard)
+BioText.Position          = UDim2.new(0, 6, 0, 20)
+BioText.Size              = UDim2.new(1, -8, 1, -24)
+BioText.BackgroundTransparency = 1
+BioText.Font              = Enum.Font.Arcade
+BioText.Text              = "Hey is me Alwi, creator of Velocity X!\nI like furry 🦊 (fox / kenomo) & fabulous beast\n\"you shou yan\" :3\nEnjoy the script! ❤"
+BioText.TextSize          = 8
+BioText.TextXAlignment    = Enum.TextXAlignment.Left
+BioText.TextYAlignment    = Enum.TextYAlignment.Top
+BioText.TextWrapped       = true
+BioText.TextColor3        = Color3.fromRGB(210, 210, 210)
+BioText.ZIndex            = 5
+
+-- Fox-paw decoration on the right side of bio card
+local FoxPaw: TextLabel = Instance.new("TextLabel", BioCard)
+FoxPaw.AnchorPoint        = Vector2.new(1, 1)
+FoxPaw.Position           = UDim2.new(1, -4, 1, -4)
+FoxPaw.Size               = UDim2.new(0, 24, 0, 24)
+FoxPaw.BackgroundTransparency = 1
+FoxPaw.Font               = Enum.Font.GothamBold
+FoxPaw.Text               = "🐾"
+FoxPaw.TextSize           = 14
+FoxPaw.TextTransparency   = 0.3
+FoxPaw.ZIndex             = 5
+
+-- Tags row
+local TagsCard: Frame = Instance.new("Frame", CreditContent)
+TagsCard.AnchorPoint          = Vector2.new(0.5, 0)
+TagsCard.Position             = UDim2.new(0.5, 0, 0, 150)
+TagsCard.Size                 = UDim2.new(1, -12, 0, 22)
+TagsCard.BackgroundTransparency = 1
+TagsCard.BorderSizePixel      = 0
+TagsCard.ZIndex               = 4
+
+local TagList: UIListLayout = Instance.new("UIListLayout", TagsCard)
+TagList.FillDirection         = Enum.FillDirection.Horizontal
+TagList.HorizontalAlignment   = Enum.HorizontalAlignment.Left
+TagList.VerticalAlignment     = Enum.VerticalAlignment.Center
+TagList.Padding               = UDim.new(0, 4)
+
+local function addTag(txt: string, col: Color3)
+    local tag: TextLabel = Instance.new("TextLabel", TagsCard)
+    tag.BackgroundColor3  = col
+    tag.BackgroundTransparency = 0.55
+    tag.BorderSizePixel   = 0
+    tag.Font              = Enum.Font.Arcade
+    tag.Text              = txt
+    tag.TextSize          = 7
+    tag.TextColor3        = Color3.fromRGB(255, 255, 255)
+    tag.ZIndex            = 5
+    local tc: UICorner = Instance.new("UICorner", tag)
+    tc.CornerRadius = UDim.new(1, 0)
+    local sz: Vector2 = game:GetService("TextService"):GetTextSize(
+        txt, 7, Enum.Font.Arcade, Vector2.new(200, 20)
+    )
+    tag.Size = UDim2.new(0, sz.X + 10, 0, 14)
+end
+
+addTag("🦊 fox",          Color3.fromRGB(255, 120, 20))
+addTag("kenomo",           Color3.fromRGB(120, 80, 200))
+addTag("furry",            Color3.fromRGB(200, 60, 120))
+addTag("Fabolous beast",        Color3.fromRGB(0, 160, 220))
+addTag("3+ Years Skidding Lua/luau",        Color3.fromRGB(0, 160, 220))
+addTag("Introvert :3",        Color3.fromRGB(0, 160, 220))
+
+-- ── Tab switching logic ───────────────────────────────────────────────────────
+local ACTIVE_COL:   Color3 = Color3.fromRGB(0, 255, 150)
+local INACTIVE_COL: Color3 = Color3.fromRGB(140, 140, 140)
+
+-- Tab positions for the sliding indicator
+local TAB_POSITIONS: {[string]: {xPos: number, width: number, btn: TextButton}} = {
+    settings = { xPos = 5,   width = 65, btn = TabBtnSettings },
+    info     = { xPos = 75,  width = 55, btn = TabBtnInfo     },
+    credit   = { xPos = 135, width = 60, btn = TabBtnCredit   },
+}
+
+local currentTab: string = "settings"
+
+local function switchTab(tabName: string)
+    if tabName == currentTab then return end
+    currentTab = tabName
+
+    ScrollingFrame.Visible = (tabName == "settings")
+    InfoContent.Visible    = (tabName == "info")
+    CreditContent.Visible  = (tabName == "credit")
+
+    -- Update tab button colours
+    for name: string, tbl: any in TAB_POSITIONS do
+        tbl.btn.TextColor3 = (name == tabName) and ACTIVE_COL or INACTIVE_COL
+    end
+
+    -- Slide indicator
+    local tbl: any = TAB_POSITIONS[tabName]
+    pcall(function()
+        TweenService:Create(TabIndicator,
+            TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { Position = UDim2.new(0, tbl.xPos, 1, 0), Size = UDim2.new(0, tbl.width, 0, 2) }
+        ):Play()
+    end)
+end
+
+local function resetToSettingsTab()
+    currentTab = "settings"
+    ScrollingFrame.Visible = true
+    InfoContent.Visible    = false
+    CreditContent.Visible  = false
+    TabBtnSettings.TextColor3 = ACTIVE_COL
+    TabBtnInfo.TextColor3     = INACTIVE_COL
+    TabBtnCredit.TextColor3   = INACTIVE_COL
+    TabIndicator.Position     = UDim2.new(0, 5, 1, 0)
+    TabIndicator.Size         = UDim2.new(0, 65, 0, 2)
+end
+
+-- Wire tab buttons
+TabBtnSettings.MouseButton1Click:Connect(function() switchTab("settings") end)
+TabBtnInfo.MouseButton1Click:Connect(function()     switchTab("info")     end)
+TabBtnCredit.MouseButton1Click:Connect(function()   switchTab("credit")   end)
+
+-- Set initial state
+TabBtnSettings.TextColor3 = ACTIVE_COL
+
+-- Async-load the avatar thumbnail into AvatarImg
+task.spawn(function()
+    local imgUrl: string = getThumbnail(CREATOR_USER_ID)
+    pcall(function()
+        AvatarImg.Image = imgUrl
+        AvatarLoadingLbl.Visible = false
+        TweenService:Create(AvatarImg,
+            TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { ImageTransparency = 0 }
+        ):Play()
+    end)
+end)
+
+-- Keep the PanelTitle reference alive (some later code may reference it)
+local PanelTitle: TextLabel = TabBtnSettings  -- alias so no nil-ref errors
 
 -- ── Toggle builder ───────────────────────────────────────────────────────────
 type ToggleControl = {
@@ -1408,7 +1852,7 @@ local antiGameplayPauseRunning:   boolean              = false
 local antiGameplayPauseThread:    thread?              = nil
 
 local function cleanupAntiFeatures()
-    print("🥺🤟😞😜❤💙🧡") 
+    --no
 end
 
 -- ── Error UI panel ────────────────────────────────────────────────────────────
@@ -1978,19 +2422,21 @@ SettingsIcon.MouseButton1Click:Connect(function()
         }):Play()
         task.wait(0.15)
         if SettingsPanel then
-            SettingsPanel.Visible          = false
-            SettingsPanel.Size             = UDim2.new(0, 200, 0, 220)
+            SettingsPanel.Visible           = false
+            SettingsPanel.Size              = UDim2.new(0, PANEL_W, 0, PANEL_H)
             SettingsPanel.ImageTransparency = 0
         end
+        resetToSettingsTab()
         if ConfirmFrame and not ConfirmFrame.Visible and DeleteConfirmFrame and not DeleteConfirmFrame.Visible then
             setButtonActive(InjectButton, true)
             setButtonActive(CloseButton,  true)
         end
     else
+        resetToSettingsTab()
         SettingsPanel.Visible = true
         SettingsPanel.Size    = UDim2.new(0, 0, 0, 0)
         TweenService:Create(SettingsPanel, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 200, 0, 220), ImageTransparency = 0
+            Size = UDim2.new(0, PANEL_W, 0, PANEL_H), ImageTransparency = 0
         }):Play()
         setButtonActive(InjectButton, false)
         setButtonActive(CloseButton,  false)
@@ -2037,7 +2483,7 @@ CloseButton.MouseButton1Click:Connect(function()
     setButtonActive(SettingsIcon, false)
     if SettingsPanel and SettingsPanel.Visible then
         SettingsPanel.Visible           = false
-        SettingsPanel.Size              = UDim2.new(0, 200, 0, 220)
+        SettingsPanel.Size              = UDim2.new(0, PANEL_W, 0, PANEL_H)
         SettingsPanel.ImageTransparency = 0
     end
     ConfirmFrame.Visible           = true
