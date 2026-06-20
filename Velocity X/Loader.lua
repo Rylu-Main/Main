@@ -1269,7 +1269,7 @@ CreatorName.Position           = UDim2.new(0, 62, 0, 6)
 CreatorName.Size               = UDim2.new(1, -68, 0, 16)
 CreatorName.BackgroundTransparency = 1
 CreatorName.Font               = Enum.Font.Arcade
-CreatorName.Text               = "Alwi"
+CreatorName.Text               = "zachparson1 (Alwi)"
 CreatorName.TextSize           = 13
 CreatorName.TextXAlignment     = Enum.TextXAlignment.Left
 CreatorName.TextColor3         = Color3.fromRGB(0, 255, 150)
@@ -1411,12 +1411,9 @@ local function addTag(txt: string, col: Color3)
     tag.Size = UDim2.new(0, sz.X + 10, 0, 14)
 end
 
-addTag("🦊 fox",          Color3.fromRGB(255, 120, 20))
-addTag("kenomo",           Color3.fromRGB(120, 80, 200))
-addTag("furry",            Color3.fromRGB(200, 60, 120))
-addTag("Fabolous beast",        Color3.fromRGB(0, 160, 220))
-addTag("3+ Years Skidding Lua/luau",        Color3.fromRGB(0, 160, 220))
-addTag("Introvert :3",        Color3.fromRGB(0, 160, 220))
+addTag("Like Fabolous beast",        Color3.fromRGB(0, 160, 220))
+addTag("3+ Years Skidding Lua/luau",        Color3.fromRGB(0, 255, 220))
+addTag("Introvert :3",        Color3.fromRGB(0, 160, 255))
 
 -- ── Tab switching logic ───────────────────────────────────────────────────────
 local ACTIVE_COL:   Color3 = Color3.fromRGB(0, 255, 150)
