@@ -1,5 +1,4 @@
 --!nonstrict
--- ── Already-running guard ────────────────────────────────────────────────────
 if getgenv().Velocity_X_Loader then
     local Notify: any = nil
     pcall(function()
@@ -71,7 +70,6 @@ end
 
 getgenv().Velocity_X_Loader = true
 
--- ── HTTP request helper (multi-executor compat) ───────────────────────────────
 local http_request_fn: ((req: {[string]:any}) -> {[string]:any})?
     = http_request or request
     or (syn  and syn.request)
@@ -79,11 +77,7 @@ local http_request_fn: ((req: {[string]:any}) -> {[string]:any})?
     or (http  and http.request)
     or nil
 
--- ── Avatar thumbnail — native Roblox API (no HTTP request needed) ─────────────
--- Players:GetUserThumbnailAsync works in every executor since it goes through
--- Roblox's own content pipeline. Falls back to rbxthumb:// if the call fails.
 local function getThumbnail(userId: number): string
-    -- Primary: native API — returns the CDN url Roblox already has cached
     local ok, url = pcall(function()
         return Players:GetUserThumbnailAsync(
             userId,
@@ -92,10 +86,9 @@ local function getThumbnail(userId: number): string
         )
     end)
     if ok and url and #url > 4 then
-        warn(string.format("[VelocityX] Thumb URL → %s", url))  -- visible in executor console
+        warn(string.format("[VelocityX] Thumb URL → %s", url))
         return url
     end
-    -- Fallback: rbxthumb:// (engine resolves it without any network call)
     local fallback = string.format(
         "rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", userId
     )
@@ -103,7 +96,6 @@ local function getThumbnail(userId: number): string
     return fallback
 end
 
--- // cloneref polyfill for executors that don't support it
 if not cloneref then
     local _probe: Part = Instance.new("Part")
     local _instanceList: { [any]: any }? = nil
@@ -142,7 +134,6 @@ local RunService   = game:GetService("RunService")
 local Players      = game:GetService("Players")
 local player       = Players.LocalPlayer
 
--- ── CoreGui (Studio-safe) ────────────────────────────────────────────────────
 local CoreGui: Instance
 if RunService:IsStudio() then
     CoreGui = player.PlayerGui
@@ -162,7 +153,6 @@ sound.Parent  = gui
 sound.SoundId = "rbxassetid://8745692251"
 sound.Volume  = 2
 
--- ── Early skip-intro check ───────────────────────────────────────────────────
 local _earlySkipIntro: boolean = false
 pcall(function()
     if readfile and isfile then
@@ -173,7 +163,6 @@ pcall(function()
         end
     end
 end)
--- function that start to count who executor my script
 
 local function log()
     task.spawn(function()
@@ -302,7 +291,7 @@ if not _earlySkipIntro then
         local _gradFrame: number = 0
         while gui.Parent do
             _gradFrame += 1
-            if _gradFrame % 4 == 0 then  -- update every 4 frames (~15 fps) – plenty for a gradient
+            if _gradFrame % 4 == 0 then
                 local t: number = tick()
                 barGradient.Rotation      += 4
                 progressGradient.Rotation += 4
@@ -390,13 +379,12 @@ if not _earlySkipIntro then
 
     task.wait(1.5)
     gui:Destroy()
-end -- end skip-intro guard
+end
 
 if _earlySkipIntro then
     pcall(function() gui:Destroy() end)
 end
 
--- ── Notification library ─────────────────────────────────────────────────────
 local Notify: any = nil
 local notifyOk: boolean, notifyErr: any = pcall(function()
     local src: string = game:HttpGet(
@@ -434,12 +422,10 @@ local function showNotification(
             })
         end)
     else
-        -- Notify UI not available — fall back to print
         print("[VelocityX] 🔔 " .. title .. " | " .. desc)
     end
 end
 
--- ── Utility functions ────────────────────────────────────────────────────────
 local function randomString(len: number): string
     local chars: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     local str: string = ""
@@ -482,8 +468,6 @@ local function GetGreetingAndTime(): (string, string, string)
     return greeting, emoji, timeStr
 end
 
--- ── Base64 decoder (fast lookup-table, no per-char string ops) ───────────────
--- Pre-built decode table: char → 6-bit value
 local _b64chars: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 local _b64lut: { [number]: number } = {}
 for i: number = 1, #_b64chars do
@@ -491,7 +475,6 @@ for i: number = 1, #_b64chars do
 end
 
 local function base64_decode(data: string): string
-    -- Strip any character not in the base64 alphabet (including whitespace / newlines)
     data = data:gsub("[^A-Za-z0-9+/=]", "")
     local out: { string } = {}
     local len: number = #data
@@ -510,15 +493,12 @@ local function base64_decode(data: string): string
         i += 4
     end
     local result: string = table.concat(out)
-    -- Trim padding bytes introduced by "=" characters
     local pad: number = 0
     if data:sub(-1) == "=" then pad += 1 end
     if data:sub(-2, -2) == "=" then pad += 1 end
     return pad > 0 and result:sub(1, #result - pad) or result
 end
 
--- Only attempt decode on strings that look like valid base64 (length multiple of 4,
--- contains only b64 alphabet). This avoids pointlessly decoding plain-text values.
 local _b64Pattern: string = "^[A-Za-z0-9+/]+=?=?$"
 local function _isBase64(s: string): boolean
     return (#s > 0) and (#s % 4 == 0) and (s:match(_b64Pattern) ~= nil)
@@ -540,7 +520,6 @@ local function decode_obfuscated(obj: any): any
     return obj
 end
 
--- ── Main GUI ScreenGui ───────────────────────────────────────────────────────
 local RealZzHub: ScreenGui = Instance.new("ScreenGui")
 RealZzHub.Name            = "Velocity_" .. randomString(10)
 RealZzHub.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling
@@ -556,7 +535,6 @@ pcall(function()
     end
 end)
 
--- ── MainBackground ───────────────────────────────────────────────────────────
 local MainBackground: ImageLabel = Instance.new("ImageLabel", RealZzHub)
 MainBackground.AnchorPoint        = Vector2.new(0.5, 0.5)
 MainBackground.Position           = UDim2.new(0.5, 0, 0.5, 0)
@@ -593,7 +571,7 @@ task.spawn(function()
     local _strokeFrame: number = 0
     while MainBackground and MainBackground.Parent do
         _strokeFrame += 1
-        if _strokeFrame % 3 == 0 then  -- ~20 fps is more than enough for a smooth color cycle
+        if _strokeFrame % 3 == 0 then
             pcall(function()
                 local t: number      = (tick() - startTime) / cycleDuration
                 local factor: number = (math.sin(t * math.pi * 2) + 1) / 2
@@ -666,14 +644,12 @@ Version.TextStrokeTransparency = 0.4
 Version.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
 Version.Visible            = false
 
--- ── Greeting card (greeting ↔ Discord, clickable) ───────────────────────────
 local DISCORD_LINK: string = "https://discord.gg/jc6SAYtVNf"
 
 local GreetingCard: Frame = Instance.new("Frame", MainBackground)
 GreetingCard.Name                   = "GreetingCard"
 GreetingCard.AnchorPoint            = Vector2.new(0, 1)
 GreetingCard.Position               = UDim2.new(0.01, 0, 0.99, 0)
--- Occupies left 60% of the bottom bar, right 40% is Version label
 GreetingCard.Size                   = UDim2.new(0.60, 0, 0, 24)
 GreetingCard.BackgroundColor3       = Color3.fromRGB(15, 15, 20)
 GreetingCard.BackgroundTransparency = 0.30
@@ -683,7 +659,6 @@ GreetingCard.Visible                = false
 
 Instance.new("UICorner", GreetingCard).CornerRadius = UDim.new(0, 5)
 
--- Left colour accent bar
 local GCardBar: Frame = Instance.new("Frame", GreetingCard)
 GCardBar.Size             = UDim2.new(0, 2, 1, 0)
 GCardBar.Position         = UDim2.new(0, 0, 0, 0)
@@ -696,7 +671,6 @@ GCardStroke.Thickness    = 1
 GCardStroke.Transparency = 0.55
 GCardStroke.Color        = Color3.fromRGB(0, 200, 255)
 
--- Discord icon (hidden in greeting mode)
 local GCardIcon: ImageLabel = Instance.new("ImageLabel", GreetingCard)
 GCardIcon.AnchorPoint           = Vector2.new(0, 0.5)
 GCardIcon.Position              = UDim2.new(0, 5, 0.5, 0)
@@ -706,7 +680,6 @@ GCardIcon.Image                 = "rbxassetid://94937742565147"
 GCardIcon.ImageTransparency     = 1
 GCardIcon.ScaleType             = Enum.ScaleType.Fit
 
--- Main greeting / title line
 local GreetingLabel: TextLabel = Instance.new("TextLabel", GreetingCard)
 GreetingLabel.AnchorPoint            = Vector2.new(0, 0.5)
 GreetingLabel.Position               = UDim2.new(0, 6, 0.5, 0)
@@ -723,7 +696,6 @@ local GreetingConstraint: UITextSizeConstraint = Instance.new("UITextSizeConstra
 GreetingConstraint.MinTextSize = 6
 GreetingConstraint.MaxTextSize = 11
 
--- Sub label (Discord link, only in Discord mode)
 local GCardSub: TextLabel = Instance.new("TextLabel", GreetingCard)
 GCardSub.AnchorPoint            = Vector2.new(0, 1)
 GCardSub.Position               = UDim2.new(0, 22, 1, -1)
@@ -740,7 +712,6 @@ local GCardSubConstraint: UITextSizeConstraint = Instance.new("UITextSizeConstra
 GCardSubConstraint.MinTextSize = 5
 GCardSubConstraint.MaxTextSize = 8
 
--- Ripple circle
 local GCardRipple: Frame = Instance.new("Frame", GreetingCard)
 GCardRipple.AnchorPoint            = Vector2.new(0.5, 0.5)
 GCardRipple.Position               = UDim2.new(0.5, 0, 0.5, 0)
@@ -751,18 +722,15 @@ GCardRipple.BorderSizePixel        = 0
 GCardRipple.ZIndex                 = 10
 Instance.new("UICorner", GCardRipple).CornerRadius = UDim.new(1, 0)
 
--- Invisible click overlay
 local GCardClick: TextButton = Instance.new("TextButton", GreetingCard)
 GCardClick.Size                   = UDim2.new(1, 0, 1, 0)
 GCardClick.BackgroundTransparency = 1
 GCardClick.Text                   = ""
 GCardClick.ZIndex                 = 11
 
--- Scale spring on the card itself
 local GreetingScale: UIScale = Instance.new("UIScale", GreetingCard)
 GreetingScale.Scale = 0.85
 
--- ── State & helpers ───────────────────────────────────────────────────────────
 local _greetingShowDiscord: boolean = false
 
 local function GetNormalGreetingText(): string
@@ -775,10 +743,8 @@ local function GetNormalGreetingText(): string
     return "Hello, " .. tostring(Players.LocalPlayer.DisplayName)
 end
 
--- Switches visual state (no animation — caller handles that)
 local function ApplyGreetingState()
     if _greetingShowDiscord then
-        -- Discord mode: taller card, icon visible, sub-link visible
         GreetingCard.Size          = UDim2.new(0.60, 0, 0, 34)
         GreetingLabel.Position     = UDim2.new(0, 22, 0.30, 0)
         GreetingLabel.Size         = UDim2.new(1, -24, 0.45, 0)
@@ -788,7 +754,6 @@ local function ApplyGreetingState()
         GCardStroke.Color          = Color3.fromRGB(88, 101, 242)
         GCardStroke.Transparency   = 0.4
     else
-        -- Normal greeting mode: single line, no icon
         GreetingCard.Size          = UDim2.new(0.60, 0, 0, 24)
         GreetingLabel.Position     = UDim2.new(0, 6, 0.5, 0)
         GreetingLabel.Size         = UDim2.new(1, -8, 1, 0)
@@ -806,12 +771,10 @@ end
 
 pcall(UpdateGreeting)
 
--- ── Click → copy to clipboard + ripple + press bounce ────────────────────────
 GCardClick.MouseButton1Click:Connect(function()
-    if not _greetingShowDiscord then return end  -- only copy when showing Discord
+    if not _greetingShowDiscord then return end
     pcall(setclipboard, DISCORD_LINK)
 
-    -- Ripple from center
     GCardRipple.Size                 = UDim2.new(0, 0, 0, 0)
     GCardRipple.BackgroundTransparency = 0.55
     GCardRipple.Position             = UDim2.new(0.5, 0, 0.5, 0)
@@ -822,7 +785,6 @@ GCardClick.MouseButton1Click:Connect(function()
         }):Play()
     end)
 
-    -- Press-down squeeze → spring back
     pcall(function()
         TweenService:Create(GreetingScale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             Scale = 0.93,
@@ -836,7 +798,6 @@ GCardClick.MouseButton1Click:Connect(function()
         end)
     end)
 
-    -- Icon wiggle (brand-phone style)
     pcall(function()
         TweenService:Create(GCardIcon, TweenInfo.new(0.1, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Rotation = -18,
@@ -857,7 +818,6 @@ GCardClick.MouseButton1Click:Connect(function()
         end)
     end)
 
-    -- Brief label flash: "Copied!" → restore
     GreetingLabel.Text = "Copied! ✓"
     GreetingLabel.TextColor3 = Color3.fromRGB(100, 255, 160)
     task.delay(1.2, function()
@@ -895,7 +855,6 @@ SettingsIcon.Image             = "rbxassetid://101339235267993"
 SettingsIcon.Visible           = false
 SettingsIcon.ImageTransparency = 0.2
 
--- ── Confirm close dialog ─────────────────────────────────────────────────────
 local ConfirmFrame: ImageLabel = Instance.new("ImageLabel", MainBackground)
 ConfirmFrame.AnchorPoint        = Vector2.new(0.5, 0.5)
 ConfirmFrame.Position           = UDim2.new(0.5, 0, 0.5, 0)
@@ -960,7 +919,6 @@ NoGradient.Rotation = 90
 Instance.new("UIStroke", NoButton).Color     = Color3.fromRGB(0, 255, 150)
 Instance.new("UIStroke", NoButton).Thickness = 1.5
 
--- ── Confirm delete dialog ────────────────────────────────────────────────────
 local DeleteConfirmFrame: ImageLabel = Instance.new("ImageLabel", MainBackground)
 DeleteConfirmFrame.Name             = "DeleteConfirmFrame"
 DeleteConfirmFrame.AnchorPoint      = Vector2.new(0.5, 0.5)
@@ -1026,9 +984,8 @@ DeleteNoGradient.Rotation = 90
 Instance.new("UIStroke", DeleteNoButton).Color     = Color3.fromRGB(255, 100, 100)
 Instance.new("UIStroke", DeleteNoButton).Thickness = 1.5
 
--- ── Settings panel  (tabbed: ⚙ Settings | ℹ Info | ★ Credit) ─────────────────
 local PANEL_W: number = 222
-local PANEL_H: number = 304  -- taller for social media section in Credit tab
+local PANEL_H: number = 245
 
 local SettingsPanel: ImageLabel = Instance.new("ImageLabel", MainBackground)
 SettingsPanel.AnchorPoint      = Vector2.new(1, 0)
@@ -1056,7 +1013,6 @@ PanelStroke.Transparency = 0.3
 local PanelCorner: UICorner = Instance.new("UICorner", SettingsPanel)
 PanelCorner.CornerRadius = UDim.new(0, 8)
 
--- ── Tab bar ──────────────────────────────────────────────────────────────────
 local TabBar: Frame = Instance.new("Frame", SettingsPanel)
 TabBar.Size               = UDim2.new(1, 0, 0, 28)
 TabBar.Position           = UDim2.new(0, 0, 0, 0)
@@ -1069,7 +1025,6 @@ TabBar.ClipsDescendants   = false
 local TabBarCorner: UICorner = Instance.new("UICorner", TabBar)
 TabBarCorner.CornerRadius = UDim.new(0, 8)
 
--- Separator below the tab bar
 local TabSep: Frame = Instance.new("Frame", TabBar)
 TabSep.Size               = UDim2.new(1, 0, 0, 1)
 TabSep.AnchorPoint        = Vector2.new(0, 1)
@@ -1079,7 +1034,6 @@ TabSep.BackgroundTransparency = 0.55
 TabSep.BorderSizePixel    = 0
 TabSep.ZIndex             = 5
 
--- Sliding active indicator bar
 local TabIndicator: Frame = Instance.new("Frame", TabBar)
 TabIndicator.AnchorPoint        = Vector2.new(0, 1)
 TabIndicator.Size               = UDim2.new(0, 60, 0, 2)
@@ -1094,7 +1048,6 @@ TabIndGrad.Color = ColorSequence.new{
 }
 Instance.new("UICorner", TabIndicator).CornerRadius = UDim.new(1, 0)
 
--- Helper: create a tab button
 local TAB_BTN_Y: number = 5
 local function makeTabButton(
     text: string,
@@ -1119,10 +1072,8 @@ local TabBtnSettings: TextButton = makeTabButton("⚙ Settings",    4,  66)
 local TabBtnInfo:     TextButton = makeTabButton("ℹ Information", 73,  82)
 local TabBtnCredit:   TextButton = makeTabButton("★ Credit",     158,  60)
 
--- ── Content frames (one per tab, all same region below the tab bar) ───────────
-local CONTENT_Y: number = 28  -- pixels below SettingsPanel top
+local CONTENT_Y: number = 28
 
--- ─ Settings content (original scrolling frame) ─
 local ScrollingFrame: ScrollingFrame = Instance.new("ScrollingFrame", SettingsPanel)
 ScrollingFrame.Name                  = "SettingsContent"
 ScrollingFrame.Position              = UDim2.new(0, 0, 0, CONTENT_Y)
@@ -1140,7 +1091,6 @@ local ToggleList: UIListLayout = Instance.new("UIListLayout", ScrollingFrame)
 ToggleList.Padding             = UDim.new(0, 8)
 ToggleList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- ─ Information content (scrollable) ─
 local InfoContent: ScrollingFrame = Instance.new("ScrollingFrame", SettingsPanel)
 InfoContent.Name                   = "InfoContent"
 InfoContent.Position               = UDim2.new(0, 0, 0, CONTENT_Y)
@@ -1154,7 +1104,7 @@ InfoContent.CanvasSize             = UDim2.new(0, 0, 0, 0)
 InfoContent.ZIndex                 = 3
 InfoContent.Visible                = false
 InfoContent.ScrollingDirection     = Enum.ScrollingDirection.Y
-InfoContent.AutomaticCanvasSize    = Enum.AutomaticSize.Y   -- auto-grow canvas
+InfoContent.AutomaticCanvasSize    = Enum.AutomaticSize.Y
 
 local InfoList: UIListLayout = Instance.new("UIListLayout", InfoContent)
 InfoList.Padding             = UDim.new(0, 2)
@@ -1168,7 +1118,6 @@ InfoPad.PaddingLeft   = UDim.new(0, 6)
 InfoPad.PaddingRight  = UDim.new(0, 8)
 InfoPad.PaddingBottom = UDim.new(0, 5)
 
--- ── Info row helpers ──────────────────────────────────────────────────────────
 local _infoOrder: number = 0
 local function addInfoRow(icon: string, label: string, value: string, col: Color3?): TextLabel
     _infoOrder += 1
@@ -1231,7 +1180,6 @@ local function addInfoHeader(txt: string): TextLabel
     return h
 end
 
--- Copyable row (button that copies its value)
 local function addCopyRow(icon: string, label: string, value: string, col: Color3?)
     _infoOrder += 1
     local row: Frame = Instance.new("Frame", InfoContent)
@@ -1278,50 +1226,6 @@ local function addCopyRow(icon: string, label: string, value: string, col: Color
     end)
 end
 
--- Dynamic copy row: fn() is called AT CLICK TIME (so position is always current)
-local function addActionCopyRow(icon: string, label: string, fn: () -> string, col: Color3?)
-    _infoOrder += 1
-    local row: Frame = Instance.new("Frame", InfoContent)
-    row.Size                  = UDim2.new(1, -6, 0, 17)
-    row.BackgroundTransparency = 1
-    row.BorderSizePixel       = 0
-    row.ZIndex                = 4
-    row.LayoutOrder           = _infoOrder
-
-    local lbl: TextLabel = Instance.new("TextLabel", row)
-    lbl.BackgroundTransparency = 1
-    lbl.Position  = UDim2.new(0, 0, 0, 0)
-    lbl.Size      = UDim2.new(0.42, 0, 1, 0)
-    lbl.Font      = Enum.Font.Arcade
-    lbl.TextSize  = 8
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.TextColor3     = Color3.fromRGB(140, 140, 140)
-    lbl.ZIndex         = 4
-    lbl.Text           = icon .. " " .. label
-
-    local copyBtn: TextButton = Instance.new("TextButton", row)
-    copyBtn.BackgroundColor3  = Color3.fromRGB(0, 150, 200)
-    copyBtn.BackgroundTransparency = 0.70
-    copyBtn.BorderSizePixel   = 0
-    copyBtn.AnchorPoint       = Vector2.new(1, 0.5)
-    copyBtn.Position          = UDim2.new(1, 0, 0.5, 0)
-    copyBtn.Size              = UDim2.new(0.55, 0, 0, 13)
-    copyBtn.Font              = Enum.Font.Arcade
-    copyBtn.TextSize          = 7
-    copyBtn.TextColor3        = col or Color3.fromRGB(0, 230, 200)
-    copyBtn.ZIndex            = 5
-    copyBtn.Text              = "📋 Copy"
-    Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 3)
-
-    copyBtn.MouseButton1Click:Connect(function()
-        local content = fn()  -- read position/data RIGHT NOW at click time
-        pcall(setclipboard, content)
-        copyBtn.Text = "✓ Copied!"
-        task.delay(1.5, function() pcall(function() copyBtn.Text = "📋 Copy" end) end)
-    end)
-end
-
--- ── Gather system information (all pcall-wrapped) ─────────────────────────────
 local function safeStr(fn: () -> any, fallback: string?): string
     local ok, r = pcall(fn)
     return (ok and r ~= nil) and tostring(r) or (fallback or "N/A")
@@ -1361,81 +1265,36 @@ end, "N/A")
 local infoTeleport = "game:GetService('TeleportService'):TeleportToPlaceInstance("
     .. infoGameId .. ", '" .. infoJobId .. "', game.Players.LocalPlayer)"
 
--- ── Populate rows ─────────────────────────────────────────────────────────────
 addInfoHeader("📊 Session Information")
 addInfoDivider(_infoOrder + 1)
 
-local timeValLbl = addInfoRow("🕐", "Time",    infoTime,     Color3.fromRGB(200, 200, 100))
+addInfoRow("🕐", "Time",       infoTime,       Color3.fromRGB(200, 200, 100))
 addInfoRow(infoDeviceType:sub(1,2), "Device", infoDeviceType:sub(4), Color3.fromRGB(150, 210, 255))
 addInfoRow("⚙",  "Executor",  infoExe,        Color3.fromRGB(180, 180, 255))
-local premiumValLbl = addInfoRow("👑", "Premium", infoPremium, Color3.fromRGB(255, 215, 0))
-
-addInfoDivider(_infoOrder + 1)
-addInfoHeader("📈 Performance")
-addInfoDivider(_infoOrder + 1)
-
-local fpsValLbl  = addInfoRow("⚡", "FPS",  "—",    Color3.fromRGB(80,  255, 120))
-local pingValLbl = addInfoRow("📡", "Ping", "— ms", Color3.fromRGB(80,  200, 255))
+local premiumValLbl = addInfoRow("👑",  "Premium",   infoPremium,    Color3.fromRGB(255, 215, 0))
 
 addInfoDivider(_infoOrder + 1)
 addInfoHeader("🎮 Game")
 addInfoDivider(_infoOrder + 1)
 
-addInfoRow("📛", "Name",     infoGameName,  Color3.fromRGB(0, 220, 180))
-addInfoRow("🆔", "Place ID", infoGameId,    Color3.fromRGB(200, 200, 200))
-addCopyRow( "🔗", "Job ID",  infoJobId,     Color3.fromRGB(100, 200, 255))
+addInfoRow("📛", "Name",      infoGameName,   Color3.fromRGB(0, 220, 180))
+addInfoRow("🆔", "Place ID",  infoGameId,     Color3.fromRGB(200, 200, 200))
+addCopyRow( "🔗", "Job ID",   infoJobId,      Color3.fromRGB(100, 200, 255))
 
 addInfoDivider(_infoOrder + 1)
 addInfoHeader("👤 Player")
 addInfoDivider(_infoOrder + 1)
 
-addInfoRow("📛", "Name",    infoPlrName,  Color3.fromRGB(0, 220, 180))
-addInfoRow("🆔", "User ID", infoPlrId,    Color3.fromRGB(200, 200, 200))
-addCopyRow( "🔑", "HWID",   infoHwid,     Color3.fromRGB(255, 150, 100))
-
-addInfoDivider(_infoOrder + 1)
-addInfoHeader("📍 Position  (live)")
-addInfoDivider(_infoOrder + 1)
-
--- Live X / Y / Z display – updated by the fast loop below
-local posXLbl = addInfoRow("➡", "X", "—", Color3.fromRGB(255, 100, 100))
-local posYLbl = addInfoRow("⬆", "Y", "—", Color3.fromRGB(100, 255, 100))
-local posZLbl = addInfoRow("🔵", "Z", "—", Color3.fromRGB(100, 150, 255))
-
--- Copy buttons that read position AT CLICK TIME (always current)
-addActionCopyRow("🎬", "Copy Tween", function(): string
-    local ok, po = pcall(function()
-        return Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-    end)
-    if not ok then return "-- no character" end
-    local x, y, z = math.floor(po.X), math.floor(po.Y), math.floor(po.Z)
-    return string.format(
-        "local tweenInfo = TweenInfo.new(2)\n" ..
-        "local goal = {CFrame = CFrame.new(%d, %d, %d)}\n" ..
-        "local tween = game:GetService(\"TweenService\"):Create(" ..
-        "game.Players.LocalPlayer.Character.HumanoidRootPart, tweenInfo, goal)\n" ..
-        "tween:Play()",
-    x, y, z)
-end, Color3.fromRGB(100, 200, 255))
-
-addActionCopyRow("📌", "Copy CFrame", function(): string
-    local ok, pos = pcall(function()
-        return Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-    end)
-    if not ok then return "-- no character" end
-    local o = string.format("%d, %d, %d",
-        math.floor(pos.X + 0.5), math.floor(pos.Y + 0.5), math.floor(pos.Z + 0.5))
-    return string.format(
-        "game.Players.LocalPlayer.Character:PivotTo(CFrame.new(Vector3.new(%s)))", o)
-end, Color3.fromRGB(0, 255, 150))
+addInfoRow("📛", "Name",      infoPlrName,    Color3.fromRGB(0, 220, 180))
+addInfoRow("🆔", "User ID",   infoPlrId,      Color3.fromRGB(200, 200, 200))
+addCopyRow( "🔑", "HWID",     infoHwid,       Color3.fromRGB(255, 150, 100))
 
 addInfoDivider(_infoOrder + 1)
 addInfoHeader("📋 Teleport Statement")
 addInfoDivider(_infoOrder + 1)
-addCopyRow("🚀", "Copy cmd", infoTeleport, Color3.fromRGB(0, 255, 150))
+addCopyRow("🚀", "Copy cmd", infoTeleport,    Color3.fromRGB(0, 255, 150))
 
--- ─ Credit content ─
-local CREATOR_USER_ID: number = 8099364004
+local CREATOR_USER_ID: number = 1291925
 
 local CreditContent: Frame = Instance.new("Frame", SettingsPanel)
 CreditContent.Name                  = "CreditContent"
@@ -1447,7 +1306,6 @@ CreditContent.ClipsDescendants      = true
 CreditContent.ZIndex                = 3
 CreditContent.Visible               = false
 
--- Avatar card background
 local AvatarCard: Frame = Instance.new("Frame", CreditContent)
 AvatarCard.AnchorPoint        = Vector2.new(0.5, 0)
 AvatarCard.Position           = UDim2.new(0.5, 0, 0, 6)
@@ -1462,7 +1320,6 @@ AvatarCardStroke.Color        = Color3.fromRGB(0, 200, 255)
 AvatarCardStroke.Thickness    = 1
 AvatarCardStroke.Transparency = 0.5
 
--- Avatar image (placeholder, loaded async below)
 local AvatarImg: ImageLabel = Instance.new("ImageLabel", AvatarCard)
 AvatarImg.AnchorPoint        = Vector2.new(0, 0.5)
 AvatarImg.Position           = UDim2.new(0, 6, 0.5, 0)
@@ -1470,7 +1327,7 @@ AvatarImg.Size               = UDim2.new(0, 50, 0, 50)
 AvatarImg.BackgroundColor3   = Color3.fromRGB(20, 20, 30)
 AvatarImg.BorderSizePixel    = 0
 AvatarImg.Image              = ""
-AvatarImg.ImageTransparency  = 1  -- fade in once loaded
+AvatarImg.ImageTransparency  = 1
 AvatarImg.ZIndex             = 5
 Instance.new("UICorner", AvatarImg).CornerRadius = UDim.new(1, 0)
 local AvatarStroke: UIStroke = Instance.new("UIStroke", AvatarImg)
@@ -1478,7 +1335,6 @@ AvatarStroke.Color        = Color3.fromRGB(0, 255, 150)
 AvatarStroke.Thickness    = 1.5
 AvatarStroke.Transparency = 0.2
 
--- Loading spinner label (shown while thumbnail fetches)
 local AvatarLoadingLbl: TextLabel = Instance.new("TextLabel", AvatarImg)
 AvatarLoadingLbl.Size              = UDim2.new(1, 0, 1, 0)
 AvatarLoadingLbl.BackgroundTransparency = 1
@@ -1488,14 +1344,13 @@ AvatarLoadingLbl.TextSize          = 10
 AvatarLoadingLbl.TextColor3        = Color3.fromRGB(0, 200, 255)
 AvatarLoadingLbl.ZIndex            = 6
 
--- Creator name
 local CreatorName: TextLabel = Instance.new("TextLabel", AvatarCard)
 CreatorName.AnchorPoint        = Vector2.new(0, 0)
 CreatorName.Position           = UDim2.new(0, 62, 0, 6)
 CreatorName.Size               = UDim2.new(1, -68, 0, 16)
 CreatorName.BackgroundTransparency = 1
 CreatorName.Font               = Enum.Font.Arcade
-CreatorName.Text               = "Alwi"
+CreatorName.Text               = "zachparson1 (alwi) "
 CreatorName.TextSize           = 13
 CreatorName.TextXAlignment     = Enum.TextXAlignment.Left
 CreatorName.TextColor3         = Color3.fromRGB(0, 255, 150)
@@ -1503,7 +1358,6 @@ CreatorName.TextStrokeTransparency = 0.3
 CreatorName.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
 CreatorName.ZIndex             = 5
 
--- Creator title / role
 local CreatorTitle: TextLabel = Instance.new("TextLabel", AvatarCard)
 CreatorTitle.AnchorPoint       = Vector2.new(0, 0)
 CreatorTitle.Position          = UDim2.new(0, 62, 0, 22)
@@ -1516,7 +1370,6 @@ CreatorTitle.TextXAlignment    = Enum.TextXAlignment.Left
 CreatorTitle.TextColor3        = Color3.fromRGB(180, 180, 255)
 CreatorTitle.ZIndex            = 5
 
--- Roblox badge icon + profile link
 local RobloxBadge: TextButton = Instance.new("TextButton", AvatarCard)
 RobloxBadge.AnchorPoint       = Vector2.new(0, 0)
 RobloxBadge.Position          = UDim2.new(0, 62, 0, 36)
@@ -1525,7 +1378,7 @@ RobloxBadge.BackgroundColor3  = Color3.fromRGB(226, 35, 26)
 RobloxBadge.BackgroundTransparency = 0.15
 RobloxBadge.BorderSizePixel   = 0
 RobloxBadge.Font              = Enum.Font.Arcade
-RobloxBadge.Text              = "🌐  Roblox Profile"
+RobloxBadge.Text              = "Roblox Profile"
 RobloxBadge.TextSize          = 8
 RobloxBadge.TextColor3        = Color3.fromRGB(255, 255, 255)
 RobloxBadge.ZIndex            = 5
@@ -1536,15 +1389,13 @@ RobloxBadgeStroke.Thickness    = 1
 RobloxBadgeStroke.Transparency = 0.4
 
 RobloxBadge.MouseButton1Click:Connect(function()
-    -- Copy profile URL to clipboard
     pcall(setclipboard, "https://www.roblox.com/users/8099364004/profile")
     RobloxBadge.Text = "✓ Copied!"
     task.delay(2, function()
-        pcall(function() RobloxBadge.Text = "🌐  Roblox Profile" end)
+        pcall(function() RobloxBadge.Text = "Roblox Profile" end)
     end)
 end)
 
--- Bio / description card
 local BioCard: Frame = Instance.new("Frame", CreditContent)
 BioCard.AnchorPoint           = Vector2.new(0.5, 0)
 BioCard.Position              = UDim2.new(0.5, 0, 0, 74)
@@ -1592,7 +1443,6 @@ BioText.TextWrapped       = true
 BioText.TextColor3        = Color3.fromRGB(210, 210, 210)
 BioText.ZIndex            = 5
 
--- Fox-paw decoration on the right side of bio card
 local FoxPaw: TextLabel = Instance.new("TextLabel", BioCard)
 FoxPaw.AnchorPoint        = Vector2.new(1, 1)
 FoxPaw.Position           = UDim2.new(1, -4, 1, -4)
@@ -1604,7 +1454,6 @@ FoxPaw.TextSize           = 14
 FoxPaw.TextTransparency   = 0.3
 FoxPaw.ZIndex             = 5
 
--- Tags (2 rows to fit all)
 local TagsOuter: Frame = Instance.new("Frame", CreditContent)
 TagsOuter.AnchorPoint           = Vector2.new(0.5, 0)
 TagsOuter.Position              = UDim2.new(0.5, 0, 0, 150)
@@ -1647,255 +1496,18 @@ local function addTag(parent: Frame, txt: string, col: Color3)
     tag.Size = UDim2.new(0, sz.X + 10, 0, 14)
 end
 
--- Row 1: personality / fursona tags
 addTag(TagRow1, "🦊 fox",      Color3.fromRGB(255, 115, 15))
 addTag(TagRow1, "kenomo",       Color3.fromRGB(110, 70, 210))
 addTag(TagRow1, "furry",        Color3.fromRGB(190, 55, 115))
-addTag(TagRow1, "fab beast",    Color3.fromRGB(0,  150, 220))
+addTag(TagRow1, "like fabulous beast",    Color3.fromRGB(0,  150, 220))
 
--- Row 2: dev / personality tags
-addTag(TagRow2, "📚 lua 3yr",   Color3.fromRGB(30,  160, 100))
-addTag(TagRow2, "🔇 Introvert", Color3.fromRGB(60,  90,  180))
-addTag(TagRow2, "😤 Ragebait",  Color3.fromRGB(200, 50,  50))
+addTag(TagRow2, "lua 3yr",   Color3.fromRGB(30,  160, 100))
+addTag(TagRow2, "Introvert", Color3.fromRGB(60,  90,  180))
+addTag(TagRow2, "Ragebait",  Color3.fromRGB(200, 50,  50))
 
--- ── Click ripple effect ───────────────────────────────────────────────────────
--- Spawns an expanding gradient circle at the cursor position in the root ScreenGui.
-local UIS = game:GetService("UserInputService")
-
-local function spawnClickEffect()
-    local mp: Vector2 = UIS:GetMouseLocation()
-    local ripple: Frame = Instance.new("Frame", gui)
-    ripple.AnchorPoint           = Vector2.new(0.5, 0.5)
-    ripple.Position              = UDim2.fromOffset(mp.X, mp.Y)
-    ripple.Size                  = UDim2.fromOffset(6, 6)
-    ripple.BackgroundColor3      = Color3.fromRGB(0, 255, 150)
-    ripple.BackgroundTransparency = 0.15
-    ripple.BorderSizePixel       = 0
-    ripple.ZIndex                = 9999
-    Instance.new("UICorner", ripple).CornerRadius = UDim.new(1, 0)
-
-    -- Gradient: green → cyan → purple
-    local grad: UIGradient = Instance.new("UIGradient", ripple)
-    grad.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0,    Color3.fromRGB(0,   255, 150)),
-        ColorSequenceKeypoint.new(0.45, Color3.fromRGB(0,   190, 255)),
-        ColorSequenceKeypoint.new(1,    Color3.fromRGB(140,   0, 255)),
-    }
-    grad.Rotation = 45
-
-    -- Outer ring for extra polish
-    local ring: Frame = Instance.new("Frame", gui)
-    ring.AnchorPoint             = Vector2.new(0.5, 0.5)
-    ring.Position                = UDim2.fromOffset(mp.X, mp.Y)
-    ring.Size                    = UDim2.fromOffset(6, 6)
-    ring.BackgroundTransparency  = 1
-    ring.BorderSizePixel         = 0
-    ring.ZIndex                  = 9998
-    Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
-    local ringStroke: UIStroke = Instance.new("UIStroke", ring)
-    ringStroke.Color       = Color3.fromRGB(0, 220, 255)
-    ringStroke.Thickness   = 1.5
-    ringStroke.Transparency = 0
-
-    local t = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    TweenService:Create(ripple, t, {
-        Size = UDim2.fromOffset(72, 72), BackgroundTransparency = 1
-    }):Play()
-    local rt = TweenService:Create(ring, t, {
-        Size = UDim2.fromOffset(90, 90),
-    })
-    TweenService:Create(ringStroke, t, { Transparency = 1 }):Play()
-    rt:Play()
-    rt.Completed:Connect(function()
-        ripple:Destroy()
-        ring:Destroy()
-    end)
-end
-
--- Wire ripple to the Roblox badge button already in the avatar card
-RobloxBadge.MouseButton1Click:Connect(function() spawnClickEffect() end)
-
--- ── Social media section ──────────────────────────────────────────────────────
-local SocialY: number = 198
-
-local SocialSep: Frame = Instance.new("Frame", CreditContent)
-SocialSep.AnchorPoint            = Vector2.new(0.5, 0)
-SocialSep.Position               = UDim2.new(0.5, 0, 0, SocialY)
-SocialSep.Size                   = UDim2.new(1, -12, 0, 1)
-SocialSep.BackgroundColor3       = Color3.fromRGB(0, 200, 255)
-SocialSep.BackgroundTransparency = 0.6
-SocialSep.BorderSizePixel        = 0
-SocialSep.ZIndex                 = 4
-
-local SocialHdr: TextLabel = Instance.new("TextLabel", CreditContent)
-SocialHdr.AnchorPoint            = Vector2.new(0, 0)
-SocialHdr.Position               = UDim2.new(0, 6, 0, SocialY + 6)
-SocialHdr.Size                   = UDim2.new(1, -12, 0, 12)
-SocialHdr.BackgroundTransparency = 1
-SocialHdr.Font                   = Enum.Font.Arcade
-SocialHdr.Text                   = "🌐 Social"
-SocialHdr.TextSize               = 8
-SocialHdr.TextXAlignment         = Enum.TextXAlignment.Left
-SocialHdr.TextColor3             = Color3.fromRGB(0, 200, 255)
-SocialHdr.ZIndex                 = 4
-
--- Row container for icon buttons
-local SocialRow: Frame = Instance.new("Frame", CreditContent)
-SocialRow.AnchorPoint            = Vector2.new(0, 0)
-SocialRow.Position               = UDim2.new(0, 6, 0, SocialY + 22)
-SocialRow.Size                   = UDim2.new(1, -12, 0, 70)
-SocialRow.BackgroundTransparency = 1
-SocialRow.BorderSizePixel        = 0
-SocialRow.ZIndex                 = 4
-
-local SocialList: UIListLayout = Instance.new("UIListLayout", SocialRow)
-SocialList.FillDirection        = Enum.FillDirection.Horizontal
-SocialList.HorizontalAlignment  = Enum.HorizontalAlignment.Left
-SocialList.VerticalAlignment    = Enum.VerticalAlignment.Top
-SocialList.Padding              = UDim.new(0, 8)
-
--- Helper: create one icon social button
-local function makeSocialBtn(
-    assetId: string?,   -- rbxassetid number string; nil → use emoji
-    emoji:   string?,   -- fallback text/emoji if no assetId
-    label:   string,
-    link:    string,
-    colA:    Color3,    -- gradient start
-    colB:    Color3     -- gradient end
-)
-    local card: Frame = Instance.new("Frame", SocialRow)
-    card.BackgroundTransparency = 1
-    card.BorderSizePixel        = 0
-    card.Size                   = UDim2.new(0, 54, 1, 0)
-    card.ZIndex                 = 4
-
-    local btn: ImageButton = Instance.new("ImageButton", card)
-    btn.AnchorPoint        = Vector2.new(0.5, 0)
-    btn.Position           = UDim2.new(0.5, 0, 0, 0)
-    btn.Size               = UDim2.new(0, 34, 0, 34)
-    btn.BackgroundColor3   = colA
-    btn.BackgroundTransparency = 0.25
-    btn.BorderSizePixel    = 0
-    btn.ZIndex             = 5
-    btn.Image              = ""
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
-
-    -- Gradient fill
-    local btnGrad: UIGradient = Instance.new("UIGradient", btn)
-    btnGrad.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, colA),
-        ColorSequenceKeypoint.new(1, colB),
-    }
-    btnGrad.Rotation = 135
-
-    -- Stroke ring
-    local stroke: UIStroke = Instance.new("UIStroke", btn)
-    stroke.Color       = colA
-    stroke.Thickness   = 1.5
-    stroke.Transparency = 0.35
-
-    -- Icon (image or emoji)
-    if assetId then
-        local img: ImageLabel = Instance.new("ImageLabel", btn)
-        img.AnchorPoint            = Vector2.new(0.5, 0.5)
-        img.Position               = UDim2.new(0.5, 0, 0.5, 0)
-        img.Size                   = UDim2.new(0.68, 0, 0.68, 0)
-        img.BackgroundTransparency = 1
-        img.Image                  = "rbxassetid://" .. assetId
-        img.ZIndex                 = 6
-    else
-        local lbl2: TextLabel = Instance.new("TextLabel", btn)
-        lbl2.AnchorPoint            = Vector2.new(0.5, 0.5)
-        lbl2.Position               = UDim2.new(0.5, 0, 0.5, 0)
-        lbl2.Size                   = UDim2.new(1, 0, 1, 0)
-        lbl2.BackgroundTransparency = 1
-        lbl2.Font                   = Enum.Font.GothamBold
-        lbl2.Text                   = emoji or "?"
-        lbl2.TextSize               = 16
-        lbl2.TextColor3             = Color3.fromRGB(255, 255, 255)
-        lbl2.ZIndex                 = 6
-    end
-
-    -- Label under button
-    local nameLbl: TextLabel = Instance.new("TextLabel", card)
-    nameLbl.AnchorPoint            = Vector2.new(0.5, 0)
-    nameLbl.Position               = UDim2.new(0.5, 0, 0, 37)
-    nameLbl.Size                   = UDim2.new(1, 2, 0, 12)
-    nameLbl.BackgroundTransparency = 1
-    nameLbl.Font                   = Enum.Font.Arcade
-    nameLbl.Text                   = label
-    nameLbl.TextSize               = 7
-    nameLbl.TextXAlignment         = Enum.TextXAlignment.Center
-    nameLbl.TextColor3             = Color3.fromRGB(175, 175, 175)
-    nameLbl.ZIndex                 = 4
-
-    -- Hover scale
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn,
-            TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            { Size = UDim2.fromOffset(38, 38), BackgroundTransparency = 0.1 }
-        ):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn,
-            TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-            { Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 0.25 }
-        ):Play()
-    end)
-
-    -- Click: ripple + copy link
-    btn.MouseButton1Click:Connect(function()
-        spawnClickEffect()
-        pcall(setclipboard, link)
-        nameLbl.Text = "Copied!"
-        task.delay(2, function() pcall(function() nameLbl.Text = label end) end)
-    end)
-end
-
--- ── Social buttons ────────────────────────────────────────────────────────────
--- Discord Server
-makeSocialBtn(
-    nil,        -- no Roblox image asset; use emoji fallback
-    "🎮",
-    "Discord",
-    "https://discord.gg/jc6SAYtVNf",
-    Color3.fromRGB(88,  101, 242),
-    Color3.fromRGB(58,  30,  180)
-)
-
--- YouTube  (icon asset ID provided by user)
-makeSocialBtn(
-    "140193697070787",
-    nil,
-    "YouTube",
-    "https://youtube.com/@Mainery",   -- update to actual channel
-    Color3.fromRGB(255, 30,  30),
-    Color3.fromRGB(180, 0,   60)
-)
-
--- Roblox Profile
-makeSocialBtn(
-    nil, "🎯",
-    "Roblox",
-    "https://www.roblox.com/users/8099364004/profile",
-    Color3.fromRGB(226, 35,  26),
-    Color3.fromRGB(180, 60,  20)
-)
-
--- X / Twitter
-makeSocialBtn(
-    nil, "𝕏",
-    "Twitter/X",
-    "https://x.com/Mainery_foxxie",   -- update to actual handle
-    Color3.fromRGB(20,  20,  20),
-    Color3.fromRGB(60,  60,  60)
-)
-
--- ── Tab switching logic ───────────────────────────────────────────────────────
 local ACTIVE_COL:   Color3 = Color3.fromRGB(0, 255, 150)
 local INACTIVE_COL: Color3 = Color3.fromRGB(140, 140, 140)
 
--- Tab positions for the sliding indicator
 local TAB_POSITIONS: {[string]: {xPos: number, width: number, btn: TextButton}} = {
     settings = { xPos = 4,   width = 66, btn = TabBtnSettings },
     info     = { xPos = 73,  width = 82, btn = TabBtnInfo     },
@@ -1912,12 +1524,10 @@ local function switchTab(tabName: string)
     InfoContent.Visible    = (tabName == "info")
     CreditContent.Visible  = (tabName == "credit")
 
-    -- Update tab button colours
     for name: string, tbl: any in TAB_POSITIONS do
         tbl.btn.TextColor3 = (name == tabName) and ACTIVE_COL or INACTIVE_COL
     end
 
-    -- Slide indicator
     local tbl: any = TAB_POSITIONS[tabName]
     pcall(function()
         TweenService:Create(TabIndicator,
@@ -1939,20 +1549,15 @@ local function resetToSettingsTab()
     TabIndicator.Size         = UDim2.new(0, 66, 0, 2)
 end
 
--- Wire tab buttons
 TabBtnSettings.MouseButton1Click:Connect(function() switchTab("settings") end)
 TabBtnInfo.MouseButton1Click:Connect(function()     switchTab("info")     end)
 TabBtnCredit.MouseButton1Click:Connect(function()   switchTab("credit")   end)
 
--- Set initial state
 TabBtnSettings.TextColor3 = ACTIVE_COL
 
--- Async-load the avatar thumbnail into AvatarImg
 task.spawn(function()
     local imgUrl: string = getThumbnail(CREATOR_USER_ID)
-    -- Assign image first so Roblox engine starts loading it
     AvatarImg.Image = imgUrl
-    -- Yield one frame so the engine acknowledges the new Image property
     task.wait()
     pcall(function()
         AvatarLoadingLbl.Text    = ""
@@ -1964,75 +1569,14 @@ task.spawn(function()
     end)
 end)
 
--- ── Live info update loops ────────────────────────────────────────────────────
-
--- FAST (0.15 s) — position X/Y/Z, formatted with string.format
-task.spawn(function()
-    while task.wait(0.15) do
-        pcall(function()
-            local char = Players.LocalPlayer.Character
-            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local p = hrp.CFrame.Position
-                posXLbl.Text = string.format("%d", math.floor(p.X))
-                posYLbl.Text = string.format("%d", math.floor(p.Y))
-                posZLbl.Text = string.format("%d", math.floor(p.Z))
-            else
-                posXLbl.Text = "—"
-                posYLbl.Text = "—"
-                posZLbl.Text = "—"
-            end
-        end)
-    end
-end)
-
--- MEDIUM (1 s) — FPS, Ping, Time
-local RS    = game:GetService("RunService")
-local Stats = game:GetService("Stats")
-
-task.spawn(function()
-    local fpsCount  = 0
-    local fpsTimer  = tick()
-    -- count task.wait(0) yields as frames (no RunService.Heartbeat bind)
-    task.spawn(function()
-        while task.wait(0) do
-            fpsCount += 1
-        end
-    end)
-
-    while task.wait(1) do
-        -- FPS from frame counter
-        pcall(function()
-            local now = tick()
-            local fps = math.floor(fpsCount / (now - fpsTimer))
-            fpsCount  = 0
-            fpsTimer  = now
-            fpsValLbl.Text = string.format("%d fps", fps)
-        end)
-
-        -- Ping from Stats service
-        pcall(function()
-            local ping = math.floor(
-                Stats.Network.ServerStatsItem["Data Ping"].Value
-            )
-            pingValLbl.Text = string.format("%d ms", ping)
-        end)
-
-        -- Clock
-        pcall(function()
-            timeValLbl.Text = string.format("%s", os.date("%H:%M:%S"))
-        end)
-    end
-end)
-
--- SLOW (15 s) — Premium membership, string.format, no RunService.Heartbeat
 task.spawn(function()
     while task.wait(15) do
-        local ok, mt    = pcall(function() return Players.LocalPlayer.MembershipType end)
-        local hasPremium = ok and mt ~= Enum.MembershipType.None
+        local ok, mt = pcall(function() return Players.LocalPlayer.MembershipType end)
+        local hasPremium: boolean = ok and mt ~= Enum.MembershipType.None
         pcall(function()
             premiumValLbl.Text = string.format("%s",
-                hasPremium and "✓ Premium" or "✗ None")
+                hasPremium and "✓ Premium" or "✗ None"
+            )
             premiumValLbl.TextColor3 = hasPremium
                 and Color3.fromRGB(255, 215, 0)
                 or  Color3.fromRGB(170, 170, 170)
@@ -2040,10 +1584,8 @@ task.spawn(function()
     end
 end)
 
--- Keep the PanelTitle reference alive (some later code may reference it)
-local PanelTitle: TextLabel = TabBtnSettings  -- alias so no nil-ref errors
+local PanelTitle: TextLabel = TabBtnSettings
 
--- ── Toggle builder ───────────────────────────────────────────────────────────
 type ToggleControl = {
     Frame: Frame,
     Get:   () -> boolean,
@@ -2155,7 +1697,6 @@ local function addToggle(
     }
 end
 
--- ── Config ───────────────────────────────────────────────────────────────────
 local CONFIG_FOLDER: string = "Velocity X"
 local CONFIG_FILE:   string = CONFIG_FOLDER .. "/VelocityX_Settings.json"
 local CONFIG_VER:    string = "v1.1"
@@ -2242,7 +1783,6 @@ local function saveConfig()
     end)
 end
 
--- ── Auto-executor helpers ────────────────────────────────────────────────────
 local function setupAutoExecutorLoader()
     local queueteleport: any = queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
     if queueteleport then
@@ -2279,7 +1819,6 @@ local function setButtonActive(button: GuiButton?, active: boolean)
     end
 end
 
--- ── Script fetch / inject ────────────────────────────────────────────────────
 local scriptUrl:  string? = nil
 local gameName:   string  = "Universal"
 local injected:   boolean = false
@@ -2298,16 +1837,12 @@ end
 
 local gameId: string = tostring(game.GameId)
 
--- ── Parallel fetch: GitHub + Pastefy run at the same time ───────────────────
--- We fire both in task.spawn, collect results into shared state,
--- then pick the winner once both finish (or one succeeds early).
 do
     local githubResult:  { url: string, name: string }? = nil
     local pastebinResult: { url: string, name: string }? = nil
     local done1: boolean = false
     local done2: boolean = false
 
-    -- Cache-bust token shared between both so they're in the same fetch round
     local cacheBust: string = tostring(math.floor(tick()))
 
     local function tryGithub()
@@ -2345,17 +1880,14 @@ do
         done2 = true
     end
 
-    -- Fire both in parallel
     task.spawn(tryGithub)
     task.spawn(tryPastebin)
 
-    -- Wait until BOTH are done (each takes ~0.5-1 s; parallel = no extra wait)
-    local deadline: number = tick() + 8  -- safety timeout
+    local deadline: number = tick() + 8
     while (not done1 or not done2) and tick() < deadline do
         task.wait(0.05)
     end
 
-    -- GitHub wins if it found the game; Pastebin is fallback
     if githubResult then
         scriptUrl = githubResult.url
         gameName  = githubResult.name
@@ -2375,7 +1907,6 @@ end
 
 InjectButton.Text = gameName .. ".lua"
 
--- Version fetch is fire-and-forget; no need to block the UI for it
 task.spawn(function()
     local ok: boolean = pcall(function()
         local versionStr: string = game:HttpGet(
@@ -2398,42 +1929,18 @@ local function clearText()
     end
 end
 
--- ── Anti-feature state ───────────────────────────────────────────────────────
 local antiAfkConnection:          RBXScriptConnection? = nil
 local antiFlingConnection:        RBXScriptConnection? = nil
 local antiGameplayPauseRunning:   boolean              = false
 local antiGameplayPauseThread:    thread?              = nil
 
 local function cleanupAntiFeatures()
-    -- Disconnect all anti-feature listeners so they don't run after the loader closes
-    pcall(function()
-        if antiAfkConnection then
-            antiAfkConnection:Disconnect()
-            antiAfkConnection = nil
-        end
-    end)
-    pcall(function()
-        if antiFlingConnection then
-            antiFlingConnection:Disconnect()
-            antiFlingConnection = nil
-        end
-    end)
-    pcall(function()
-        antiGameplayPauseRunning = false
-        if antiGameplayPauseThread then
-            task.cancel(antiGameplayPauseThread)
-            antiGameplayPauseThread = nil
-        end
-    end)
 end
 
--- ── Error UI panel ────────────────────────────────────────────────────────────
--- Slides up from the bottom of MainBackground when inject fails.
--- Shows error type icon, message, and a Retry button.
 local ErrorPanel: Frame = Instance.new("Frame", MainBackground)
 ErrorPanel.Name                   = "ErrorPanel"
 ErrorPanel.AnchorPoint            = Vector2.new(0, 1)
-ErrorPanel.Position               = UDim2.new(0, 0, 1.05, 0)   -- starts hidden below
+ErrorPanel.Position               = UDim2.new(0, 0, 1.05, 0)
 ErrorPanel.Size                   = UDim2.new(1, 0, 0, 60)
 ErrorPanel.BackgroundColor3       = Color3.fromRGB(20, 8, 8)
 ErrorPanel.BackgroundTransparency = 0.10
@@ -2449,7 +1956,6 @@ ErrStroke.Color       = Color3.fromRGB(255, 60, 60)
 ErrStroke.Thickness   = 1.5
 ErrStroke.Transparency = 0.3
 
--- Top red accent line
 local ErrTopBar: Frame = Instance.new("Frame", ErrorPanel)
 ErrTopBar.Size             = UDim2.new(1, 0, 0, 2)
 ErrTopBar.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
@@ -2461,7 +1967,6 @@ ErrTopGrad.Color = ColorSequence.new{
     ColorSequenceKeypoint.new(1,   Color3.fromRGB(255, 80, 80)),
 }
 
--- Warning icon
 local ErrIcon: TextLabel = Instance.new("TextLabel", ErrorPanel)
 ErrIcon.AnchorPoint            = Vector2.new(0, 0.5)
 ErrIcon.Position               = UDim2.new(0, 8, 0.38, 0)
@@ -2473,7 +1978,6 @@ ErrIcon.TextScaled             = true
 ErrIcon.TextColor3             = Color3.fromRGB(255, 140, 40)
 ErrIcon.ZIndex                 = 6
 
--- Error title
 local ErrTitle: TextLabel = Instance.new("TextLabel", ErrorPanel)
 ErrTitle.AnchorPoint            = Vector2.new(0, 0)
 ErrTitle.Position               = UDim2.new(0, 30, 0, 6)
@@ -2488,7 +1992,6 @@ ErrTitle.TextStrokeTransparency = 0.4
 ErrTitle.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
 ErrTitle.ZIndex                 = 6
 
--- Error description (shorter message)
 local ErrDesc: TextLabel = Instance.new("TextLabel", ErrorPanel)
 ErrDesc.AnchorPoint            = Vector2.new(0, 0)
 ErrDesc.Position               = UDim2.new(0, 30, 0, 23)
@@ -2503,7 +2006,6 @@ ErrDesc.TextYAlignment         = Enum.TextYAlignment.Top
 ErrDesc.TextColor3             = Color3.fromRGB(220, 180, 180)
 ErrDesc.ZIndex                 = 6
 
--- Retry button
 local ErrRetryBtn: TextButton = Instance.new("TextButton", ErrorPanel)
 ErrRetryBtn.AnchorPoint            = Vector2.new(1, 0.5)
 ErrRetryBtn.Position               = UDim2.new(0.98, 0, 0.55, 0)
@@ -2526,7 +2028,6 @@ ErrRetryGrad.Rotation = 90
 Instance.new("UIStroke", ErrRetryBtn).Color     = Color3.fromRGB(255, 80, 80)
 Instance.new("UIStroke", ErrRetryBtn).Thickness = 1
 
--- Dismiss (×) button
 local ErrDismissBtn: TextButton = Instance.new("TextButton", ErrorPanel)
 ErrDismissBtn.AnchorPoint            = Vector2.new(1, 0)
 ErrDismissBtn.Position               = UDim2.new(1, -2, 0, 2)
@@ -2539,7 +2040,6 @@ ErrDismissBtn.TextSize               = 13
 ErrDismissBtn.TextColor3             = Color3.fromRGB(180, 100, 100)
 ErrDismissBtn.ZIndex                 = 8
 
--- Helper: slide the error panel up into view / back down
 local _errPanelOpen: boolean = false
 local function showErrorPanel(title: string, desc: string, onRetry: (() -> ())?)
     if not ErrorPanel or not ErrorPanel.Parent then return end
@@ -2552,7 +2052,6 @@ local function showErrorPanel(title: string, desc: string, onRetry: (() -> ())?)
         Position = UDim2.new(0, 0, 0.62, 0),
     }):Play()
 
-    -- Retry wires up fresh each call
     local retryConn: RBXScriptConnection
     retryConn = ErrRetryBtn.MouseButton1Click:Connect(function()
         retryConn:Disconnect()
@@ -2599,9 +2098,8 @@ local function shakeError()
     end)
 end
 
--- ── Retry-aware inject (3 attempts per URL) ──────────────────────────────────
 local MAX_RETRIES: number = 3
-local RETRY_DELAY: number = 2  -- seconds between attempts
+local RETRY_DELAY: number = 2
 
 local function tryFetchAndRun(url: string): (boolean, string)
     local ok: boolean, err: any = pcall(function()
@@ -2627,7 +2125,6 @@ local function injectScript()
     local currentName: string = gameName
     local lastErr:     string = ""
 
-    -- ── Phase 1: try current URL up to MAX_RETRIES times ──────────────────────
     local phase1Ok: boolean = false
     for attempt: number = 1, MAX_RETRIES do
         InjectButton.Text = string.format("Attempt %d/%d...", attempt, MAX_RETRIES)
@@ -2650,10 +2147,9 @@ local function injectScript()
 
     if phase1Ok then
         setButtonActive(InjectButton, true)
-        return  -- success – caller handles GUI close
+        return
     end
 
-    -- ── Phase 2: game-specific URL failed → fall back to Universal ────────────
     if currentUrl ~= UNIVERSAL_URL then
         showNotification(
             "⚠ Game Script Failed",
@@ -2686,11 +2182,10 @@ local function injectScript()
 
         if phase2Ok then
             setButtonActive(InjectButton, true)
-            return  -- success
+            return
         end
     end
 
-    -- ── All attempts exhausted ─────────────────────────────────────────────────
     injected          = false
     InjectButton.Text = gameName .. ".lua"
     setButtonActive(InjectButton, true)
@@ -2713,7 +2208,7 @@ end
 local function performAutoInject()
     if injected then return end
     injectScript()
-    if not injected then return end  -- failed – error panel shown, keep GUI open
+    if not injected then return end
     InjectButton.Text = "Injecting..."
     TweenService:Create(MainBackground, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
         Size = UDim2.new(0, 0, 0, 0), ImageTransparency = 1
@@ -2724,7 +2219,6 @@ local function performAutoInject()
     if RealZzHub then RealZzHub:Destroy() end
 end
 
--- ── Show main window ─────────────────────────────────────────────────────────
 MainBackground.Visible = true
 MainBackground.Size    = UDim2.new(0, 0, 0, 0)
 TweenService:Create(MainBackground, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
@@ -2742,7 +2236,6 @@ GreetingCard.Visible  = true
 
 loadConfig()
 
--- ── Settings toggles ─────────────────────────────────────────────────────────
 local autoSaveCtrl = addToggle(ScrollingFrame, "Auto Save Config", config.autoSave, function(val: boolean)
     config.autoSave = val
     if config.autoSave then saveConfig() end
@@ -2848,7 +2341,6 @@ local skipIntroCtrl = addToggle(ScrollingFrame, "Skip Intro UI", config.skipIntr
     showNotification("Skip Intro UI", val and "Will skip next session" or "Intro restored", Color3.fromRGB(0, 255, 120), 2)
 end)
 
--- ── Open Console button ───────────────────────────────────────────────────────
 local openConsoleButton: TextButton = Instance.new("TextButton")
 openConsoleButton.Name               = "OpenConsoleButton"
 openConsoleButton.Size               = UDim2.new(0, 180, 0, 30)
@@ -2872,7 +2364,6 @@ openConsoleButton.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ── Delete Config button ─────────────────────────────────────────────────────
 local deleteConfigButton: TextButton = Instance.new("TextButton")
 deleteConfigButton.Name               = "DeleteConfigButton"
 deleteConfigButton.Size               = UDim2.new(0, 180, 0, 30)
@@ -2919,7 +2410,6 @@ task.spawn(function()
         task.wait(3)
         if not (RealZzHub and RealZzHub.Parent) then break end
 
-        -- 1. Slide + fade out (card slides left, shrinks, fades)
         pcall(function()
             TweenService:Create(GreetingScale, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                 Scale = 0.88,
@@ -2937,13 +2427,10 @@ task.spawn(function()
         end)
         task.wait(0.25)
 
-        -- 2. Swap state
         _greetingShowDiscord = not _greetingShowDiscord
         pcall(ApplyGreetingState)
 
-        -- 3. Slide + fade in (Back easing = overshoot bounce like a brand phone notification)
         if _greetingShowDiscord then
-            -- Discord mode: show icon + sub link
             pcall(function()
                 TweenService:Create(GCardIcon, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
                     ImageTransparency = 0,
@@ -2953,7 +2440,6 @@ task.spawn(function()
                 }):Play()
             end)
         else
-            -- Normal mode: hide icon + sub
             pcall(function()
                 GCardIcon.ImageTransparency = 1
                 GCardSub.TextTransparency   = 1
@@ -2972,7 +2458,6 @@ task.spawn(function()
     end
 end)
 
--- ── Button handlers ───────────────────────────────────────────────────────────
 InjectButton.MouseButton1Click:Connect(function()
     if not InjectButton.Active then return end
     injectScript()
@@ -3016,7 +2501,6 @@ SettingsIcon.MouseButton1Click:Connect(function()
     end
 end)
 
--- ── Close confirm dialog ──────────────────────────────────────────────────────
 local confirmClosing: boolean = false
 local function closeConfirmDialog(callback: (() -> ())?)
     if not ConfirmFrame or not ConfirmFrame.Parent or not ConfirmFrame.Visible or confirmClosing then
@@ -3082,7 +2566,6 @@ NoButton.MouseButton1Click:Connect(function()
     closeConfirmDialog()
 end)
 
--- ── Delete confirm dialog ─────────────────────────────────────────────────────
 local deleteConfirmClosing: boolean = false
 local function closeDeleteConfirmDialog(callback: (() -> ())?)
     if not DeleteConfirmFrame or not DeleteConfirmFrame.Parent
@@ -3165,7 +2648,6 @@ DeleteNoButton.MouseButton1Click:Connect(function()
     closeDeleteConfirmDialog()
 end)
 
--- ── Drag system ───────────────────────────────────────────────────────────────
 local _dragOk: boolean, _dragErr: any = pcall(function()
     local probe: UIDragDetector = Instance.new("UIDragDetector")
     probe:Destroy()
