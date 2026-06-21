@@ -79,49 +79,28 @@ local http_request_fn: ((req: {[string]:any}) -> {[string]:any})?
     or (http  and http.request)
     or nil
 
--- ── Robust avatar-thumbnail fetch ────────────────────────────────────────────
--- Chain: http_request (roproxy) → http_request (roblox) → game:HttpGet (roproxy)
--- → game:HttpGet (roblox) → rbxthumb:// native (always works).
--- Never throws; always returns a usable image string.
-local function getThumbnail(userId: string): string
-    local HS = game:GetService("HttpService")
-
-    local function parseThumbJson(body: string): string?
-        local ok, data = pcall(HS.JSONDecode, HS, body)
-        if ok and data and data.data and data.data[1] then
-            local url: string? = data.data[1].imageUrl
-            if url and #url > 10 then return url end
-        end
-        return nil
+-- ── Avatar thumbnail — native Roblox API (no HTTP request needed) ─────────────
+-- Players:GetUserThumbnailAsync works in every executor since it goes through
+-- Roblox's own content pipeline. Falls back to rbxthumb:// if the call fails.
+local function getThumbnail(userId: number): string
+    -- Primary: native API — returns the CDN url Roblox already has cached
+    local ok, url = pcall(function()
+        return Players:GetUserThumbnailAsync(
+            userId,
+            Enum.ThumbnailType.HeadShot,
+            Enum.ThumbnailSize.Size150x150
+        )
+    end)
+    if ok and url and #url > 4 then
+        warn(string.format("[VelocityX] Thumb URL → %s", url))  -- visible in executor console
+        return url
     end
-
-    local URLS: {string} = {
-        "https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=" .. userId .. "&size=75x75&format=Png",
-        "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds="  .. userId .. "&size=75x75&format=Png",
-    }
-
-    -- Method A – http_request (some executors need this for external HTTP)
-    if http_request_fn then
-        for _, url in URLS do
-            local ok, resp = pcall(http_request_fn, { Url = url, Method = "GET" })
-            if ok and resp and (not resp.StatusCode or resp.StatusCode == 200) then
-                local img = parseThumbJson(resp.Body or "")
-                if img then return img end
-            end
-        end
-    end
-
-    -- Method B – game:HttpGet (available in virtually every executor)
-    for _, url in URLS do
-        local ok, body = pcall(game.HttpGet, game, url)
-        if ok and body and #body > 10 then
-            local img = parseThumbJson(body)
-            if img then return img end
-        end
-    end
-
-    -- Method C – native rbxthumb:// (no HTTP call; Roblox engine loads it directly)
-    return "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150"
+    -- Fallback: rbxthumb:// (engine resolves it without any network call)
+    local fallback = string.format(
+        "rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", userId
+    )
+    warn(string.format("[VelocityX] Thumb fallback → %s", fallback))
+    return fallback
 end
 
 -- // cloneref polyfill for executors that don't support it
@@ -1346,7 +1325,7 @@ addInfoDivider(_infoOrder + 1)
 addInfoRow("🕐", "Time",       infoTime,       Color3.fromRGB(200, 200, 100))
 addInfoRow(infoDeviceType:sub(1,2), "Device", infoDeviceType:sub(4), Color3.fromRGB(150, 210, 255))
 addInfoRow("⚙",  "Executor",  infoExe,        Color3.fromRGB(180, 180, 255))
-addInfoRow("👑",  "Premium",   infoPremium,    Color3.fromRGB(255, 215, 0))
+local premiumValLbl = addInfoRow("👑",  "Premium",   infoPremium,    Color3.fromRGB(255, 215, 0))
 
 addInfoDivider(_infoOrder + 1)
 addInfoHeader("🎮 Game")
@@ -1370,7 +1349,7 @@ addInfoDivider(_infoOrder + 1)
 addCopyRow("🚀", "Copy cmd", infoTeleport,    Color3.fromRGB(0, 255, 150))
 
 -- ─ Credit content ─
-local CREATOR_USER_ID: string = "8099364004"
+local CREATOR_USER_ID: number = 1291925
 
 local CreditContent: Frame = Instance.new("Frame", SettingsPanel)
 CreditContent.Name                  = "CreditContent"
@@ -1430,7 +1409,7 @@ CreatorName.Position           = UDim2.new(0, 62, 0, 6)
 CreatorName.Size               = UDim2.new(1, -68, 0, 16)
 CreatorName.BackgroundTransparency = 1
 CreatorName.Font               = Enum.Font.Arcade
-CreatorName.Text               = "zachparson1 (alwi)"
+CreatorName.Text               = "zachparson1 (alwi) "
 CreatorName.TextSize           = 13
 CreatorName.TextXAlignment     = Enum.TextXAlignment.Left
 CreatorName.TextColor3         = Color3.fromRGB(0, 255, 150)
@@ -1473,7 +1452,7 @@ RobloxBadgeStroke.Transparency = 0.4
 RobloxBadge.MouseButton1Click:Connect(function()
     -- Copy profile URL to clipboard
     pcall(setclipboard, "https://www.roblox.com/users/8099364004/profile")
-    RobloxBadge.Text = "Copied!"
+    RobloxBadge.Text = "✓ Copied!"
     task.delay(2, function()
         pcall(function() RobloxBadge.Text = "Roblox Profile" end)
     end)
@@ -1586,9 +1565,12 @@ end
 addTag(TagRow1, "🦊 fox",      Color3.fromRGB(255, 115, 15))
 addTag(TagRow1, "kenomo",       Color3.fromRGB(110, 70, 210))
 addTag(TagRow1, "furry",        Color3.fromRGB(190, 55, 115))
-addTag(TagRow2, "📚 lua 3yr",   Color3.fromRGB(30,  160, 100))
-addTag(TagRow2, "🔇 Introvert", Color3.fromRGB(60,  90,  180))
-addTag(TagRow2, "😤 Ragebait",  Color3.fromRGB(200, 50,  50))
+addTag(TagRow1, "like fabulous beast",    Color3.fromRGB(0,  150, 220))
+
+-- Row 2: dev / personality tags
+addTag(TagRow2, "lua 3yr",   Color3.fromRGB(30,  160, 100))
+addTag(TagRow2, "Introvert", Color3.fromRGB(60,  90,  180))
+addTag(TagRow2, "Ragebait",  Color3.fromRGB(200, 50,  50))
 
 -- ── Tab switching logic ───────────────────────────────────────────────────────
 local ACTIVE_COL:   Color3 = Color3.fromRGB(0, 255, 150)
@@ -1649,19 +1631,34 @@ TabBtnSettings.TextColor3 = ACTIVE_COL
 -- Async-load the avatar thumbnail into AvatarImg
 task.spawn(function()
     local imgUrl: string = getThumbnail(CREATOR_USER_ID)
+    -- Assign image first so Roblox engine starts loading it
+    AvatarImg.Image = imgUrl
+    -- Yield one frame so the engine acknowledges the new Image property
+    task.wait()
     pcall(function()
-        -- Set image first (engine starts loading it in background)
-        AvatarImg.Image = imgUrl
-        -- Wait a frame so the engine can acknowledge the image
-        task.wait()
         AvatarLoadingLbl.Text    = ""
         AvatarLoadingLbl.Visible = false
-        -- Fade in
         TweenService:Create(AvatarImg,
             TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
             { ImageTransparency = 0 }
         ):Play()
     end)
+end)
+
+-- Premium status auto-update — while task.wait(), no RunService.Heartbeat
+task.spawn(function()
+    while task.wait(15) do  -- poll every 15 s
+        local ok, mt = pcall(function() return Players.LocalPlayer.MembershipType end)
+        local hasPremium: boolean = ok and mt ~= Enum.MembershipType.None
+        pcall(function()
+            premiumValLbl.Text = string.format("%s",
+                hasPremium and "✓ Premium" or "✗ None"
+            )
+            premiumValLbl.TextColor3 = hasPremium
+                and Color3.fromRGB(255, 215, 0)
+                or  Color3.fromRGB(170, 170, 170)
+        end)
+    end
 end)
 
 -- Keep the PanelTitle reference alive (some later code may reference it)
@@ -2029,26 +2026,7 @@ local antiGameplayPauseRunning:   boolean              = false
 local antiGameplayPauseThread:    thread?              = nil
 
 local function cleanupAntiFeatures()
-    -- Disconnect all anti-feature listeners so they don't run after the loader closes
-    pcall(function()
-        if antiAfkConnection then
-            antiAfkConnection:Disconnect()
-            antiAfkConnection = nil
-        end
-    end)
-    pcall(function()
-        if antiFlingConnection then
-            antiFlingConnection:Disconnect()
-            antiFlingConnection = nil
-        end
-    end)
-    pcall(function()
-        antiGameplayPauseRunning = false
-        if antiGameplayPauseThread then
-            task.cancel(antiGameplayPauseThread)
-            antiGameplayPauseThread = nil
-        end
-    end)
+    -- iam
 end
 
 -- ── Error UI panel ────────────────────────────────────────────────────────────
