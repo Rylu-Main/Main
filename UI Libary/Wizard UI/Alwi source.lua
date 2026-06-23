@@ -312,9 +312,14 @@ return {
                 SectionTitle.Font = Enum.Font.SourceSansBold
                 SectionTitle.Text = sectionTitle
                 SectionTitle.TextColor3 = Color3.new(1, 1, 1)
-                SectionTitle.TextSize = 17
+                SectionTitle.TextSize = 13
                 SectionTitle.TextScaled = true
                 SectionTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+                local SectionTitleConstraint = Instance.new("UITextSizeConstraint")
+                SectionTitleConstraint.MaxTextSize = 13
+                SectionTitleConstraint.MinTextSize = 6
+                SectionTitleConstraint.Parent = SectionTitle
 
                 SectionLayout.Name = "Layout"
                 SectionLayout.Parent = SectionFrame
@@ -398,9 +403,14 @@ return {
                         Title.Font = Enum.Font.SourceSansBold
                         Title.Text = label
                         Title.TextColor3 = Color3.new(1, 1, 1)
-                        Title.TextSize = 17
+                        Title.TextSize = 13
                         Title.TextScaled = true
                         Title.TextXAlignment = Enum.TextXAlignment.Left
+
+                        local TitleConstraint = Instance.new("UITextSizeConstraint")
+                        TitleConstraint.MaxTextSize = 13
+                        TitleConstraint.MinTextSize = 6
+                        TitleConstraint.Parent = Title
 
                         Background.Name = "ToggleBackground"
                         Background.Parent = Holder
